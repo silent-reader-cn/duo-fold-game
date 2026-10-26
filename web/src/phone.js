@@ -868,13 +868,13 @@ export function createPhone() {
     `,
     side: THREE.FrontSide,   // 只画正面：折过去之后不应看到内屏的背面
     toneMapped: false,
-    // 屏幕与机身表面只差几毫米，深度精度不足会被吃掉 → 直接不参与深度测试
-    depthTest: false,
-    depthWrite: false,
+    // 正常参与深度测试：折过 90° 后机身侧边应当能挡住屏幕，
+    // 屏幕比机身表面高 4mm 以上，深度精度足够区分
+    depthTest: true,
+    depthWrite: true,
   });
 
   const screenMesh = new THREE.Mesh(scrGeo, screenMat);
-  screenMesh.renderOrder = 10;
   group.add(screenMesh);
 
   const Z0 = THICK / 2 + 0.010;      // 屏幕基准面
