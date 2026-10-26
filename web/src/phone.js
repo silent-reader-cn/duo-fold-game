@@ -838,8 +838,16 @@ export function createPhone() {
       void main() {
         float d = abs(vUv.x - 0.5);
 
+        // 背面：不渲染内容（否则会看到镜像的屏幕），只画成屏幕背板的深色。
+        // 但折叠处（靠近中线）的三角形在陡角下会被判成背面，那里必须照常绘制，
+        // 否则内屏中间会出现一条黑色裂缝。
+        if (!gl_FrontFacing && d > 0.055) {
+          gl_FragColor = vec4(0.018, 0.018, 0.022, 1.0);
+          return;
+        }
+
         // 折线附近：内容被压缩（透视感）
-        float squeeze = uFold * 0.16 * exp(-d * 7.0);
+        float squeeze = uFold * 0.09 * exp(-d * 6.0);
         vec2 uv = vec2(0.5 + (vUv.x - 0.5) * (1.0 - squeeze), vUv.y);
 
         // 渐变模糊：越靠近折线越糊
@@ -856,7 +864,7 @@ export function createPhone() {
         col /= tot;
 
         // 折线暗化
-        col.rgb *= (1.0 - uFold * 0.42 * exp(-d * 10.0));
+        col.rgb *= (1.0 - uFold * 0.20 * exp(-d * 8.0));
         // 折线处的冷色光学偏移
         col.rgb += vec3(0.005, 0.016, 0.045) * uFold * exp(-d * 5.0);
 
@@ -866,7 +874,7 @@ export function createPhone() {
         gl_FragColor = col;
       }
     `,
-    side: THREE.FrontSide,   // 只画正面：折过去之后不应看到内屏的背面
+    side: THREE.DoubleSide,  // 双面绘制保证折叠处曲面连续；背面由 shader 涂成深色
     toneMapped: false,
     // 正常参与深度测试：折过 90° 后机身侧边应当能挡住屏幕，
     // 屏幕比机身表面高 4mm 以上，深度精度足够区分
@@ -905,7 +913,7 @@ export function createPhone() {
     const halfW = scrW / 2;
     const dz = THICK / 2 + 0.010;
     const innerHalf = HALF_W - BORDER;
-    const rb = Math.min(0.10, innerHalf * 0.55);   // 铰链过渡带
+    const rb = Math.min(0.20, innerHalf * 0.80);   // 铰链过渡带（拉长，避免硬棱）
 
     for (let i = 0; i < posAttr.count; i++) {
       const s = baseX[i];
@@ -924,9 +932,8 @@ export function createPhone() {
 
       // 铰链处不能跟着角度转进去（大角度时会变成 z<0 陷进机身被遮挡），
       // 让它在机身正面外侧鼓成一个折叠环，再平滑过渡到本侧角度
-      // 只有真正在折的那一侧才鼓起来；固定不动的另半保持平贴
-      const sideWeight = Math.abs(angTarget) / Math.max(1e-6, Math.abs(angLead));
-      const bulge = 0.055 * Math.sin(ab) * sideWeight;
+      // 凸起高度必须两侧共用：按侧加权会让铰链处左右 z 值不相等，屏幕中间直接裂开
+      const bulge = 0.026 * Math.sin(ab);
       const hz = dz + bulge;
 
       const t = Math.min(1, d / rb);
