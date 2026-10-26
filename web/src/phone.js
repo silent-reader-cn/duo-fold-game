@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ICONS } from './icons.js';
+import { FILL_ICONS } from './ios_icons.js';
 
 // ================= 真实尺寸（iPhone Duo）=================
 // 内屏 7.6" 4:3 → 展开 157×112mm；外屏 5.4" 在背面；展开厚 5.2mm
@@ -124,29 +124,50 @@ function durianTexture() {
 
 
 // ---------------- iOS Home 界面 ----------------
-const ICON_NAMES = [
-  'camera', 'message-circle', 'music', 'map', 'mail', 'settings',
-  'calendar', 'cloud-sun', 'clock', 'sticky-note', 'bell', 'trending-up',
-  'wallet', 'folder', 'mic', 'heart-pulse', 'book-open', 'house',
-  'shopping-bag', 'languages', 'zap', 'calculator', 'audio-lines', 'app-window',
+// iOS 风格 App：实心图形 + 各自的标准配色（Bootstrap Icons, MIT）
+const APPS = [
+  { key: 'camera',   name: '相机',   c1: '#b8bcc4', c2: '#828994' },
+  { key: 'msg',      name: '信息',   c1: '#6ef58a', c2: '#14f17d' },
+  { key: 'music',    name: '音乐',   c1: '#ff6b81', c2: '#f0667e' },
+  { key: 'maps',     name: '地图',   c1: '#9ae89a', c2: '#51d184' },
+  { key: 'mail',     name: '邮件',   c1: '#6fc9ff', c2: '#62a3f0' },
+  { key: 'settings', name: '设置',   c1: '#b6b8be', c2: '#777780' },
+  { key: 'calendar', name: '日历',   c1: '#ffffff', c2: '#ffffff', dark: true },
+  { key: 'weather',  name: '天气',   c1: '#63b3ff', c2: '#6297f0' },
+  { key: 'clock',    name: '时钟',   c1: '#48484a', c2: '#28282b' },
+  { key: 'notes',    name: '备忘录', c1: '#ffe680', c2: '#ffd556' },
+  { key: 'reminder', name: '提醒',   c1: '#ffffff', c2: '#ffffff', dark: true },
+  { key: 'stocks',   name: '股票',   c1: '#48484a', c2: '#28282b' },
+  { key: 'wallet',   name: '钱包',   c1: '#48484a', c2: '#28282b' },
+  { key: 'files',    name: '文件',   c1: '#6fc9ff', c2: '#89b9f2' },
+  { key: 'podcast',  name: '播客',   c1: '#c9a0ff', c2: '#c7a9fa' },
+  { key: 'health',   name: '健康',   c1: '#ff7f97', c2: '#f0667e' },
+  { key: 'books',    name: '图书',   c1: '#ffc266', c2: '#f8b85d' },
+  { key: 'home',     name: '家庭',   c1: '#ffc266', c2: '#f8b85d' },
+  { key: 'store',    name: '商店',   c1: '#6fc9ff', c2: '#79bcff' },
+  { key: 'translate',name: '翻译',   c1: '#8fb4ff', c2: '#7fa0e9' },
+  { key: 'flash',    name: '快捷',   c1: '#a78bfa', c2: '#928be3' },
+  { key: 'calc',     name: '计算器', c1: '#ffc266', c2: '#ffc26b' },
+  { key: 'video',    name: '视频',   c1: '#ff7f97', c2: '#ee4889' },
+  { key: 'safari',   name: 'Safari', c1: '#8fd4ff', c2: '#62a3f0' },
 ];
-const DOCK_ICONS = ['phone', 'compass', 'message-circle', 'camera'];
+const DOCK_APPS = [
+  { key: 'phone',  c1: '#6ef58a', c2: '#0fa958' },
+  { key: 'safari', c1: '#8fd4ff', c2: '#1a6fd4' },
+  { key: 'msg',    c1: '#6ef58a', c2: '#0fa958' },
+  { key: 'music',  c1: '#ff6b81', c2: '#d61b3c' },
+];
 
-/** 用 Path2D 描边绘制图标（Lucide 24x24 网格） */
-function drawIconGlyph(ctx, name, cx, cy, size, color = 'rgba(255,255,255,.96)') {
-  const paths = ICONS[name];
+/** 实心图标绘制（Bootstrap Icons 16x16 网格） */
+function drawFillGlyph(ctx, key, cx, cy, size, color) {
+  const paths = FILL_ICONS[key];
   if (!paths) return;
-  const sc = size / 24;
+  const sc = size / 16;
   ctx.save();
   ctx.translate(cx - size / 2, cy - size / 2);
   ctx.scale(sc, sc);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2.35 / sc;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  for (let i = 0; i < paths.length; i++) {
-    ctx.stroke(new Path2D(paths[i]));
-  }
+  ctx.fillStyle = color;
+  for (let i = 0; i < paths.length; i++) ctx.fill(new Path2D(paths[i]));
   ctx.restore();
 }
 
@@ -157,20 +178,19 @@ function drawHome(ctx, st) {
   // 壁纸
   if (_wallpaper) {
     ctx.drawImage(_wallpaper, 0, 0, CW, CH);
-    // 压暗，保证图标可读
-    ctx.fillStyle = 'rgba(5,7,16,.26)';
+    // 浅色壁纸：叠淡蓝紫，保留纹理又给图标留层次（纯白会把白字吞掉）
+    const tint = ctx.createLinearGradient(0, 0, CW, CH);
+    tint.addColorStop(0, 'rgba(204,222,250,.42)');
+    tint.addColorStop(0.5, 'rgba(234,228,252,.34)');
+    tint.addColorStop(1, 'rgba(212,238,252,.44)');
+    ctx.fillStyle = tint;
     ctx.fillRect(0, 0, CW, CH);
-    // 顶部与底部渐暗，撑出景深
-    const topG = ctx.createLinearGradient(0, 0, 0, CH * 0.35);
-    topG.addColorStop(0, 'rgba(0,0,0,.32)');
-    topG.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = topG;
-    ctx.fillRect(0, 0, CW, CH * 0.35);
-    const botG = ctx.createLinearGradient(0, CH * 0.7, 0, CH);
-    botG.addColorStop(0, 'rgba(0,0,0,0)');
-    botG.addColorStop(1, 'rgba(0,0,0,.30)');
-    ctx.fillStyle = botG;
-    ctx.fillRect(0, CH * 0.7, CW, CH * 0.3);
+    // 轻微暗角，四角不至于过曝
+    const vig = ctx.createRadialGradient(CW / 2, CH / 2, CH * 0.30, CW / 2, CH / 2, CW * 0.80);
+    vig.addColorStop(0, 'rgba(255,255,255,0)');
+    vig.addColorStop(1, 'rgba(118,138,182,.18)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, CW, CH);
   } else {
     const bg = ctx.createRadialGradient(CW * 0.26, CH * 0.20, 30, CW * 0.5, CH * 0.62, CW * 0.98);
     bg.addColorStop(0, '#232e4a');
@@ -182,23 +202,23 @@ function drawHome(ctx, st) {
 
   // --- 状态栏 ---
   ctx.textAlign = 'left';
-  ctx.fillStyle = 'rgba(240,244,250,.92)';
+  ctx.fillStyle = 'rgba(22,24,30,.92)';
   ctx.font = `600 30px ${CJK}`;
   ctx.fillText('9:41', 46, 54);
 
   ctx.textAlign = 'right';
   ctx.font = `400 24px ${CJK}`;
-  ctx.fillStyle = 'rgba(240,244,250,.72)';
+  ctx.fillStyle = 'rgba(22,24,30,.66)';
   ctx.fillText('5G', CW - 178, 52);
 
   // 信号条
-  ctx.fillStyle = 'rgba(240,244,250,.85)';
+  ctx.fillStyle = 'rgba(22,24,30,.80)';
   for (let i = 0; i < 4; i++) {
     const h = 6 + i * 4;
     ctx.fillRect(CW - 148 + i * 8, 52 - h, 4.5, h);
   }
   // WiFi
-  ctx.strokeStyle = 'rgba(240,244,250,.85)';
+  ctx.strokeStyle = 'rgba(22,24,30,.80)';
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.arc(CW - 100, 50, 13, -Math.PI * 0.80, -Math.PI * 0.20);
@@ -207,13 +227,13 @@ function drawHome(ctx, st) {
   ctx.arc(CW - 100, 50, 6.5, -Math.PI * 0.72, -Math.PI * 0.28);
   ctx.stroke();
   // 电池
-  ctx.strokeStyle = 'rgba(240,244,250,.8)';
+  ctx.strokeStyle = 'rgba(22,24,30,.72)';
   ctx.lineWidth = 2.4;
   roundRectPath(ctx, CW - 74, 38, 44, 20, [5, 5, 5, 5]);
   ctx.stroke();
-  ctx.fillStyle = 'rgba(240,244,250,.82)';
+  ctx.fillStyle = 'rgba(22,24,30,.75)';
   ctx.fillRect(CW - 29, 44, 3.5, 8);
-  ctx.fillStyle = 'rgba(240,244,250,.9)';
+  ctx.fillStyle = 'rgba(22,24,30,.85)';
   roundRectPath(ctx, CW - 70, 42, 30, 12, [3, 3, 3, 3]);
   ctx.fill();
 
@@ -225,59 +245,50 @@ function drawHome(ctx, st) {
   const top = 80;
   const rowH = 128;
 
-  // iOS 系统色的双段渐变（上亮下深）
-  const colorPairs = [
-    ['#5b9cf8', '#1f5fd0'], ['#4ade80', '#0f9d58'], ['#ffd166', '#e08a10'],
-    ['#ff7a7a', '#c62828'], ['#b98cff', '#6b39c9'], ['#5eead4', '#0f8f96'],
-    ['#ffb066', '#c25a10'], ['#8e99a8', '#4a545f'],
-  ];
-
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const idx = r * cols + c;
+      const app = APPS[idx % APPS.length];
       const x = marginX + c * (iconW + gapX);
       const y = top + r * rowH;
       const rad = [iconW * 0.224, iconW * 0.224, iconW * 0.224, iconW * 0.224];
 
-      const pair = colorPairs[idx % colorPairs.length];
-      const bg = ctx.createLinearGradient(x, y, x + iconW * 0.35, y + iconW);
-      bg.addColorStop(0, pair[0]);
-      bg.addColorStop(1, pair[1]);
+      const bg = ctx.createLinearGradient(x, y, x, y + iconW);
+      bg.addColorStop(0, app.c1);
+      bg.addColorStop(1, app.c2);
       ctx.fillStyle = bg;
       roundRectPath(ctx, x, y, iconW, iconW, rad);
       ctx.fill();
 
-      // 玻璃高光
+      // 玻璃高光（iOS 图标的顶部反光）
       const gl = ctx.createLinearGradient(x, y, x, y + iconW);
       gl.addColorStop(0, 'rgba(255,255,255,.38)');
-      gl.addColorStop(0.28, 'rgba(255,255,255,.10)');
-      gl.addColorStop(0.55, 'rgba(255,255,255,.02)');
-      gl.addColorStop(1, 'rgba(0,0,0,.20)');
+      gl.addColorStop(0.30, 'rgba(255,255,255,.10)');
+      gl.addColorStop(0.56, 'rgba(255,255,255,.02)');
+      gl.addColorStop(1, 'rgba(0,0,0,.07)');
       ctx.fillStyle = gl;
       roundRectPath(ctx, x, y, iconW, iconW, rad);
       ctx.fill();
       // 内描边高光
-      ctx.strokeStyle = 'rgba(255,255,255,.16)';
+      ctx.strokeStyle = 'rgba(255,255,255,.20)';
       ctx.lineWidth = 1;
       roundRectPath(ctx, x + 0.5, y + 0.5, iconW - 1, iconW - 1, rad);
       ctx.stroke();
 
-      // 图标（Lucide 形状，白色描边压在彩色底板上）
-      drawIconGlyph(ctx, ICON_NAMES[idx] || 'app-window', x + iconW / 2, y + iconW / 2, iconW * 0.54);
+      // 实心图形（白底图标改用深色）
+      drawFillGlyph(
+        ctx, app.key,
+        x + iconW / 2, y + iconW / 2, iconW * 0.46,
+        app.dark ? 'rgba(38,40,48,.88)' : 'rgba(255,255,255,.97)'
+      );
 
-      // 图标名
-      ctx.fillStyle = 'rgba(232,236,244,.58)';
-      ctx.font = `400 15px ${CJK}`;
-      ctx.textAlign = 'center';
-      const names = ['相机', '信息', '音乐', '地图', '邮件', '设置', '日历', '天气', '时钟', '备忘录', '提醒', '股票', '钱包', '文件', '播客', '健康', '图书', '家庭', '商店', '翻译', '快捷', '提示', '计算器', '语音'];
-      ctx.fillText(names[idx] || '', x + iconW / 2, y + iconW + 20);
     }
   }
 
   // --- 页面指示点 ---
   const dotY = CH - 116;
   for (let i = 0; i < 3; i++) {
-    ctx.fillStyle = i === 0 ? 'rgba(240,244,250,.92)' : 'rgba(240,244,250,.32)';
+    ctx.fillStyle = i === 0 ? 'rgba(240,244,250,.92)' : 'rgba(24,26,32,.26)';
     ctx.beginPath();
     ctx.arc(CW / 2 - 18 + i * 18, dotY, 5, 0, Math.PI * 2);
     ctx.fill();
@@ -289,10 +300,10 @@ function drawHome(ctx, st) {
   const dockX = 74;
   const dockY = CH - dockH - 10;
 
-  ctx.fillStyle = 'rgba(255,255,255,.11)';
+  ctx.fillStyle = 'rgba(255,255,255,.46)';
   roundRectPath(ctx, dockX, dockY, dockW, dockH, [dockH * 0.44, dockH * 0.44, dockH * 0.44, dockH * 0.44]);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,.14)';
+  ctx.strokeStyle = 'rgba(255,255,255,.62)';
   ctx.lineWidth = 1.5;
   roundRectPath(ctx, dockX, dockY, dockW, dockH, [dockH * 0.44, dockH * 0.44, dockH * 0.44, dockH * 0.44]);
   ctx.stroke();
@@ -303,21 +314,24 @@ function drawHome(ctx, st) {
   for (let i = 0; i < dockN; i++) {
     const x = dockX + dgap + i * (diW + dgap);
     const y = dockY + (dockH - diW) / 2;
-    const dp = colorPairs[(i + 3) % colorPairs.length];
-    const dbg = ctx.createLinearGradient(x, y, x + diW * 0.35, y + diW);
-    dbg.addColorStop(0, dp[0]);
-    dbg.addColorStop(1, dp[1]);
+    const dApp = DOCK_APPS[i];
+    const drad = [diW * 0.224, diW * 0.224, diW * 0.224, diW * 0.224];
+
+    const dbg = ctx.createLinearGradient(x, y, x, y + diW);
+    dbg.addColorStop(0, dApp.c1);
+    dbg.addColorStop(1, dApp.c2);
     ctx.fillStyle = dbg;
-    roundRectPath(ctx, x, y, diW, diW, [diW * 0.224, diW * 0.224, diW * 0.224, diW * 0.224]);
-    ctx.fill();
-    const gl2 = ctx.createLinearGradient(x, y, x, y + diW);
-    gl2.addColorStop(0, 'rgba(255,255,255,.32)');
-    gl2.addColorStop(1, 'rgba(0,0,0,.18)');
-    ctx.fillStyle = gl2;
-    roundRectPath(ctx, x, y, diW, diW, [diW * 0.224, diW * 0.224, diW * 0.224, diW * 0.224]);
+    roundRectPath(ctx, x, y, diW, diW, drad);
     ctx.fill();
 
-    drawIconGlyph(ctx, DOCK_ICONS[i], x + diW / 2, y + diW / 2, diW * 0.52);
+    const gl2 = ctx.createLinearGradient(x, y, x, y + diW);
+    gl2.addColorStop(0, 'rgba(255,255,255,.32)');
+    gl2.addColorStop(1, 'rgba(0,0,0,.14)');
+    ctx.fillStyle = gl2;
+    roundRectPath(ctx, x, y, diW, diW, drad);
+    ctx.fill();
+
+    drawFillGlyph(ctx, dApp.key, x + diW / 2, y + diW / 2, diW * 0.46, 'rgba(255,255,255,.97)');
   }
 }
 
@@ -693,19 +707,29 @@ export function drawCover(ctx, st) {
   roundRectPath(ctx, 0, 0, SW, SH, [56, 56, 56, 56]);
   ctx.clip();
 
-  const g = ctx.createLinearGradient(0, 0, 0, SH);
-  g.addColorStop(0, '#111317');
-  g.addColorStop(1, '#08090c');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, SW, SH);
+  if (_wallpaper) {
+    ctx.drawImage(_wallpaper, 0, 0, SW, SH);
+    const tint2 = ctx.createLinearGradient(0, 0, SW, SH);
+    tint2.addColorStop(0, 'rgba(206,224,250,.46)');
+    tint2.addColorStop(0.55, 'rgba(236,230,252,.38)');
+    tint2.addColorStop(1, 'rgba(214,238,252,.48)');
+    ctx.fillStyle = tint2;
+    ctx.fillRect(0, 0, SW, SH);
+  } else {
+    const g = ctx.createLinearGradient(0, 0, 0, SH);
+    g.addColorStop(0, '#dfe7f5');
+    g.addColorStop(1, '#c9d6ea');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, SW, SH);
+  }
 
   ctx.textAlign = 'center';
   if (!broken) {
-    ctx.fillStyle = 'rgba(238,241,246,.92)';
+    ctx.fillStyle = 'rgba(22,24,30,.92)';
     ctx.font = `600 96px ${CJK}`;
     ctx.fillText('9:41', SW / 2, SH * 0.20);
 
-    ctx.fillStyle = 'rgba(186,192,202,.6)';
+    ctx.fillStyle = 'rgba(58,64,78,.66)';
     ctx.font = `400 26px ${CJK}`;
     ctx.fillText('10月23日 星期五', SW / 2, SH * 0.255);
 

@@ -751,7 +751,7 @@ window.__duo = { scene, camera, phone, renderer, THREE, game, envTex };
 const wp = new Image();
 wp.onload = () => { setWallpaper(wp); updateUI(); };
 wp.onerror = () => { console.warn('wallpaper load failed, fallback to gradient'); };
-wp.src = './assets/wallpaper.jpg';
+wp.src = './assets/wallpaper-light.jpg';
 
 initShards();
 layout();
