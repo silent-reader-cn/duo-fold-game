@@ -737,10 +737,15 @@ export function drawCover(ctx, st) {
     for (let i = 0; i < 2; i++) {
       const bx = 40 + i * (SW - 80) / 2 + 8;
       const bw = (SW - 80) / 2 - 16;
-      ctx.fillStyle = 'rgba(28,32,38,.95)';
+      // 浅色壁纸上用 iOS 的半透明白玻璃小组件
+      ctx.fillStyle = 'rgba(255,255,255,.58)';
       roundRectPath(ctx, bx, SH * 0.33, bw, SH * 0.16, [22, 22, 22, 22]);
       ctx.fill();
-      ctx.fillStyle = 'rgba(120,128,140,.65)';
+      ctx.strokeStyle = 'rgba(255,255,255,.75)';
+      ctx.lineWidth = 1;
+      roundRectPath(ctx, bx + 0.5, SH * 0.33 + 0.5, bw - 1, SH * 0.16 - 1, [22, 22, 22, 22]);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(58,64,78,.72)';
       ctx.font = `400 20px ${CJK}`;
       ctx.fillText(i === 0 ? '日历' : '天气', bx + bw / 2, SH * 0.40);
     }
