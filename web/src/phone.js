@@ -899,41 +899,33 @@ export function createPhone() {
       return;
     }
 
-    const cosB = Math.cos(ab);
-    const sinB = Math.sin(ab);
+    const [angL, angR] = foldAngles(b);
+    // 铰链处必须与主导边机身同角，否则屏幕会与机身折向相反（看起来像屏幕内折、机身外折）
+    const angLead = Math.abs(angL) >= Math.abs(angR) ? angL : angR;
     const halfW = scrW / 2;
     const dz = THICK / 2 + 0.010;
-    const innerHalf = HALF_W - BORDER;                 // 屏幕边缘落点
-    const rb = Math.min(0.055, innerHalf * 0.45);       // 铰链弯曲带宽度
-    const bulgeH = 0.020 * sinB;                        // 铰链凸起（越折越明显）
+    const innerHalf = HALF_W - BORDER;
+    const rb = Math.min(0.10, innerHalf * 0.55);   // 铰链过渡带
 
     for (let i = 0; i < posAttr.count; i++) {
       const s = baseX[i];
       const a = Math.abs(s);
-      const sgn = s >= 0 ? 1 : -1;
+      const isLeft = s < 0;
 
-      // 归一化：屏幕的 |x| 均匀映射到机身内侧宽度
-      const d = (a / halfW) * innerHalf;
+      const d = (a / halfW) * innerHalf;           // 0..innerHalf
+      const angTarget = isLeft ? angL : angR;
 
-      // 该点在机身正面（绕铰链转 ∓b 后）的位置
-      const bx = d * cosB - dz * sinB;
-      const bz = d * sinB + dz * cosB;
+      // 铰链处两侧角度连续（都用中间角），向外逐渐过渡到各自的折叠角
+      const t = Math.min(1, d / rb);
+      const ease = t * t * (3 - 2 * t);
+      const ang = angLead + (angTarget - angLead) * ease;
 
-      let x, z;
-      if (d < rb) {
-        const t = d / rb;
-        const ease = Math.sin(t * Math.PI * 0.5);        // 平滑收到中线
-        const bulge = Math.cos(t * Math.PI * 0.5) * bulgeH;
-        // 展开时不收拢（k→0），折叠时逐渐生效
-        x = sgn * bx * ((1 - sinB) + sinB * ease);
-        z = bz + bulge;
-      } else {
-        x = sgn * bx;
-        z = bz;
-      }
+      const cosA = Math.cos(ang);
+      const sinA = Math.sin(ang);
+      const lx = isLeft ? -d : d;
 
-      arr[i * 3] = x;
-      arr[i * 3 + 2] = z;
+      arr[i * 3] = lx * cosA + dz * sinA;
+      arr[i * 3 + 2] = -lx * sinA + dz * cosA;
     }
     posAttr.needsUpdate = true;
     scrGeo.computeVertexNormals();
@@ -1021,11 +1013,25 @@ export function createPhone() {
 
   let curBend = 0;
 
+  // 翻书式折叠：手指往哪边推，那半边为主翻过去，另一边只轻微随动
+  const LEAD = 1.40;
+  const FOLLOW = 0.45;
+
+  function foldAngles(angle) {
+    const ab = Math.abs(angle);
+    if (angle >= 0) {
+      // 向右滑 → 左半边向右翻
+      return [LEAD * ab, -FOLLOW * ab];
+    }
+    // 向左滑 → 右半边向左翻
+    return [FOLLOW * ab, -LEAD * ab];
+  }
+
   function setBend(angle) {
     curBend = angle;
-    // 对称折叠：两块同时向中间收拢
-    leftPivot.rotation.y = angle;
-    rightPivot.rotation.y = -angle;
+    const [angL, angR] = foldAngles(angle);
+    leftPivot.rotation.y = angL;
+    rightPivot.rotation.y = angR;
     deformScreen(angle);
     screenMat.uniforms.uFold.value = Math.min(Math.abs(angle) / (Math.PI / 2), 1.0);
   }
