@@ -841,17 +841,24 @@ export function createPhone() {
         // 背面：不渲染内容（否则会看到镜像的屏幕），只画成屏幕背板的深色。
         // 但折叠处（靠近中线）的三角形在陡角下会被判成背面，那里必须照常绘制，
         // 否则内屏中间会出现一条黑色裂缝。
-        if (!gl_FrontFacing && d > 0.055) {
-          gl_FragColor = vec4(0.018, 0.018, 0.022, 1.0);
-          return;
+        if (!gl_FrontFacing) {
+          // 折得深（翻过 ~110°）：背面整体透明，露出机身背面的外屏，
+          // 否则内屏背板会连同一圈彩色边缘一起挡在外屏前面
+          if (uFold > 0.72) discard;
+
+          // 折得浅：画成深色背板保证连续；中线附近照常绘制内容
+          if (d > 0.055) {
+            gl_FragColor = vec4(0.018, 0.018, 0.022, 1.0);
+            return;
+          }
         }
 
         // 折线附近：内容被压缩（透视感）
-        float squeeze = uFold * 0.09 * exp(-d * 6.0);
+        float squeeze = uFold * 0.05 * exp(-d * 30.0);
         vec2 uv = vec2(0.5 + (vUv.x - 0.5) * (1.0 - squeeze), vUv.y);
 
         // 渐变模糊：越靠近折线越糊
-        float blur = uFold * (0.0016 + 0.011 * exp(-d * 8.0));
+        float blur = uFold * (0.0006 + 0.004 * exp(-d * 26.0));
         vec4 col = vec4(0.0);
         float tot = 0.0;
         for (int i = -2; i <= 2; i++) {
@@ -864,9 +871,9 @@ export function createPhone() {
         col /= tot;
 
         // 折线暗化
-        col.rgb *= (1.0 - uFold * 0.20 * exp(-d * 8.0));
+        col.rgb *= (1.0 - uFold * 0.16 * exp(-d * 34.0));
         // 折线处的冷色光学偏移
-        col.rgb += vec3(0.005, 0.016, 0.045) * uFold * exp(-d * 5.0);
+        col.rgb += vec3(0.005, 0.016, 0.045) * uFold * exp(-d * 22.0);
 
         // 圆角裁切：透明区域直接丢弃，露出机身
         if (col.a < 0.5) discard;
@@ -913,7 +920,7 @@ export function createPhone() {
     const halfW = scrW / 2;
     const dz = THICK / 2 + 0.010;
     const innerHalf = HALF_W - BORDER;
-    const rb = Math.min(0.20, innerHalf * 0.80);   // 铰链过渡带（拉长，避免硬棱）
+    const rb = Math.min(0.115, innerHalf * 0.45);  // 铰链过渡带：宽度要超过机身厚度
 
     for (let i = 0; i < posAttr.count; i++) {
       const s = baseX[i];
@@ -933,7 +940,9 @@ export function createPhone() {
       // 铰链处不能跟着角度转进去（大角度时会变成 z<0 陷进机身被遮挡），
       // 让它在机身正面外侧鼓成一个折叠环，再平滑过渡到本侧角度
       // 凸起高度必须两侧共用：按侧加权会让铰链处左右 z 值不相等，屏幕中间直接裂开
-      const bulge = 0.026 * Math.sin(ab);
+      // 折到 90 度时屏幕会挤成一条线，机身侧面(4.8mm)就会从后面露出来。
+      // 让铰链处鼓出比机身厚度更宽更靠前的弧，才能始终盖住机身
+      const bulge = 0.065 * Math.sin(ab);
       const hz = dz + bulge;
 
       const t = Math.min(1, d / rb);
@@ -1048,7 +1057,12 @@ export function createPhone() {
     leftPivot.rotation.y = angL;
     rightPivot.rotation.y = angR;
     deformScreen(angle);
-    screenMat.uniforms.uFold.value = Math.min(Math.abs(angle) / (Math.PI / 2), 1.0);
+
+    const foldRatio = Math.min(Math.abs(angle) / (Math.PI / 2), 1.0);
+    screenMat.uniforms.uFold.value = foldRatio;
+    // 深折时内屏整块让位给机身背面的外屏，
+    // 否则铰链中线处（法线仍朝前）会漏出一圈彩色内容
+    screenMesh.visible = foldRatio < 0.75;
   }
 
   function updateScreen(state) {
