@@ -866,7 +866,7 @@ export function createPhone() {
         gl_FragColor = col;
       }
     `,
-    side: THREE.DoubleSide,
+    side: THREE.FrontSide,   // 只画正面：折过去之后不应看到内屏的背面
     toneMapped: false,
     // 屏幕与机身表面只差几毫米，深度精度不足会被吃掉 → 直接不参与深度测试
     depthTest: false,
@@ -1014,8 +1014,8 @@ export function createPhone() {
   let curBend = 0;
 
   // 翻书式折叠：手指往哪边推，那半边为主翻过去，另一边只轻微随动
-  const LEAD = 1.40;
-  const FOLLOW = 0.45;
+  const LEAD = 2.00;   // bend=π/2 时主导边正好翻满 180°
+  const FOLLOW = 0.0;  // 对侧完全固定在原位
 
   function foldAngles(angle) {
     const ab = Math.abs(angle);

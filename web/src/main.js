@@ -724,14 +724,16 @@ function tick(now) {
   // 这里按折叠角度做位置补偿，保证任何角度下都居中不溢出。
   if (!game.broken) {
     const ab = Math.abs(bend);
-    phone.group.position.y = 0.11 - ab * 0.15;
-    phone.group.position.x = ab * 0.14;
+    // 只做竖直补偿（防止 V 形顶出视口上沿）；水平方向不补偿，
+    // 否则固定不动的另一半看起来也在横移。
+    phone.group.position.y = 0.11 - ab * 0.13;
+    phone.group.position.x = 0;
   }
 
   // 报废后缓慢自转，像在看一件遗物
   // 非线性翻转：0-45° 几乎不转（内屏清楚可见），45° 之后加速翻到外屏
-  const tFold = Math.min(Math.max(bend, 0) / (Math.PI / 2), 1);
-  const targetRotY = 0.06 - (Math.PI / 2) * 0.96 * Math.pow(tFold, 2.4);
+  // 左半翻过去后外屏自然朝向观察者，整机不再随折叠旋转（否则右半会看起来在飘）
+  const targetRotY = 0.06;
   if (game.broken) {
     phone.group.rotation.y = 0.06 + Math.sin(now / 2600) * 0.24;
   } else {
