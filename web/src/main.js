@@ -724,10 +724,11 @@ function tick(now) {
   // 这里按折叠角度做位置补偿，保证任何角度下都居中不溢出。
   if (!game.broken) {
     const ab = Math.abs(bend);
-    // 只做竖直补偿（防止 V 形顶出视口上沿）；水平方向不补偿，
-    // 否则固定不动的另一半看起来也在横移。
+    // 竖直：防止 V 形顶出视口上沿
+    // 水平：主导边翻过去后整体重心右移，需要回正；补偿作用在整机上，
+    // 不是让固定那半边参与折叠，所以不会破坏「另一半不动」的手感
     phone.group.position.y = 0.11 - ab * 0.13;
-    phone.group.position.x = 0;
+    phone.group.position.x = -ab * 0.24;
   }
 
   // 报废后缓慢自转，像在看一件遗物

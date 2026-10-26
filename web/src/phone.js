@@ -915,17 +915,25 @@ export function createPhone() {
       const d = (a / halfW) * innerHalf;           // 0..innerHalf
       const angTarget = isLeft ? angL : angR;
 
-      // 铰链处两侧角度连续（都用中间角），向外逐渐过渡到各自的折叠角
+      // 按本侧折叠角算出的目标位置
+      const cosA = Math.cos(angTarget);
+      const sinA = Math.sin(angTarget);
+      const lx = isLeft ? -d : d;
+      const tx = lx * cosA + dz * sinA;
+      const tz = -lx * sinA + dz * cosA;
+
+      // 铰链处不能跟着角度转进去（大角度时会变成 z<0 陷进机身被遮挡），
+      // 让它在机身正面外侧鼓成一个折叠环，再平滑过渡到本侧角度
+      // 只有真正在折的那一侧才鼓起来；固定不动的另半保持平贴
+      const sideWeight = Math.abs(angTarget) / Math.max(1e-6, Math.abs(angLead));
+      const bulge = 0.055 * Math.sin(ab) * sideWeight;
+      const hz = dz + bulge;
+
       const t = Math.min(1, d / rb);
       const ease = t * t * (3 - 2 * t);
-      const ang = angLead + (angTarget - angLead) * ease;
 
-      const cosA = Math.cos(ang);
-      const sinA = Math.sin(ang);
-      const lx = isLeft ? -d : d;
-
-      arr[i * 3] = lx * cosA + dz * sinA;
-      arr[i * 3 + 2] = -lx * sinA + dz * cosA;
+      arr[i * 3] = tx * ease;
+      arr[i * 3 + 2] = hz + (tz - hz) * ease;
     }
     posAttr.needsUpdate = true;
     scrGeo.computeVertexNormals();
