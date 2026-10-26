@@ -797,7 +797,8 @@ export function createPhone() {
   rightPivot.add(rMesh);
 
   // --- 内屏：一整块连续柔性曲面（不跟随两半刚性旋转，自己做弯曲）---
-  const inset = 0.052;   // 留出折叠时的弧长余量，防止投影溢出机身边缘
+  const BORDER = 0.018;  // 屏幕到机身边缘的边框宽度
+  const inset = 0.020;   // 窄边框：屏幕贴到机身内缘 2mm 处
   const scrW = (HALF_W - inset) * 2 - 0.010;
   const scrH = HEIGHT - inset * 2;
 
@@ -876,12 +877,13 @@ export function createPhone() {
   screenMesh.renderOrder = 10;
   group.add(screenMesh);
 
-  const Z0 = THICK / 2 + 0.010;   // 贴合机身正面（屏幕不参与深度测试，无需抬高）
-  const SCREEN_LIFT = 0.010;
+  const Z0 = THICK / 2 + 0.010;      // 屏幕基准面
 
   /**
-   * 对称折叠。屏幕绕过铰链时形成「凸面」：铰链处略高于机身正面，
-   * 两端平板段贴合机身正面（弧长不足的部分由屏幕边框吸收）。
+   * 屏幕「贴」在机身内侧面上，跟随两半机身一起旋转。
+   * 关键：顶点按归一化比例映射到机身内侧宽度，边缘恒定落在机身边内 2mm，
+   * 因此折叠时不会因「弧长守恒但投影收缩」而被挤出机身边缘。
+   * 铰链处叠加一段凸起，模拟柔性屏在缝隙里的弯折。
    */
   function deformScreen(b) {
     const arr = posAttr.array;
@@ -892,30 +894,46 @@ export function createPhone() {
         arr[i * 3] = baseX[i];
         arr[i * 3 + 2] = Z0;
       }
-    } else {
-      const R = THICK / 2;              // 弯曲半径 = 机身半厚
-      const rb = R * ab;
-      const sinB = Math.sin(ab);
-      const cosB = Math.cos(ab);
-      const sgn = Math.sign(b);
+      posAttr.needsUpdate = true;
+      scrGeo.computeVertexNormals();
+      return;
+    }
 
-      for (let i = 0; i < posAttr.count; i++) {
-        const s = baseX[i];
-        const a = Math.abs(s);
-        let x, z;
-        if (a <= rb) {
-          const th = s / R;
-          x = R * Math.sin(th);
-          z = R * Math.cos(th) + SCREEN_LIFT;      // 凸面：铰链处最高
-        } else {
-          const sg = Math.sign(s);
-          const u = a - rb;
-          x = sg * (R * sinB + u * cosB);
-          z = R * cosB + u * sinB + SCREEN_LIFT;   // 平板段贴合机身正面
-        }
-        arr[i * 3] = x;
-        arr[i * 3 + 2] = sgn === 1 ? z : (2 * Z0 - z);
+    const cosB = Math.cos(ab);
+    const sinB = Math.sin(ab);
+    const halfW = scrW / 2;
+    const dz = THICK / 2 + 0.010;
+    const innerHalf = HALF_W - BORDER;                 // 屏幕边缘落点
+    const rb = Math.min(0.055, innerHalf * 0.45);       // 铰链弯曲带宽度
+    const bulgeH = 0.020 * sinB;                        // 铰链凸起（越折越明显）
+
+    for (let i = 0; i < posAttr.count; i++) {
+      const s = baseX[i];
+      const a = Math.abs(s);
+      const sgn = s >= 0 ? 1 : -1;
+
+      // 归一化：屏幕的 |x| 均匀映射到机身内侧宽度
+      const d = (a / halfW) * innerHalf;
+
+      // 该点在机身正面（绕铰链转 ∓b 后）的位置
+      const bx = d * cosB - dz * sinB;
+      const bz = d * sinB + dz * cosB;
+
+      let x, z;
+      if (d < rb) {
+        const t = d / rb;
+        const ease = Math.sin(t * Math.PI * 0.5);        // 平滑收到中线
+        const bulge = Math.cos(t * Math.PI * 0.5) * bulgeH;
+        // 展开时不收拢（k→0），折叠时逐渐生效
+        x = sgn * bx * ((1 - sinB) + sinB * ease);
+        z = bz + bulge;
+      } else {
+        x = sgn * bx;
+        z = bz;
       }
+
+      arr[i * 3] = x;
+      arr[i * 3 + 2] = z;
     }
     posAttr.needsUpdate = true;
     scrGeo.computeVertexNormals();
@@ -939,8 +957,8 @@ export function createPhone() {
   coverTex.colorSpace = THREE.SRGBColorSpace;
   coverTex.anisotropy = 8;
   // 外屏必须按「单侧机身」尺寸算，否则会超出背板
-  const coverW = HALF_W * 0.90;
-  const coverH = Math.min(coverW * (SH / SW), HEIGHT * 0.94);
+  const coverW = HALF_W * 0.955;   // 窄边框，与内屏 2mm 口径对齐
+  const coverH = Math.min(coverW * (SH / SW), HEIGHT * 0.955);
   const coverScreen = new THREE.Mesh(
     new THREE.PlaneGeometry(coverW, coverH),
     new THREE.MeshBasicMaterial({

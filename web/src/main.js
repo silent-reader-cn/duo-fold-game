@@ -181,7 +181,7 @@ fillLight.position.set(4, -3, 3);
 scene.add(fillLight);
 
 const phone = createPhone();
-phone.group.position.y = 0.06;
+phone.group.position.y = 0.11;
 phone.group.rotation.x = -0.14;   // 略微俯视，增强立体感
 phone.group.rotation.y = 0.06;
 scene.add(phone.group);
@@ -663,7 +663,7 @@ function layout() {
 
   // 展开总宽 = HALF_W*2 = 1.58，按宽度适配（占屏 86%，留出边距）
   const phoneW = 1.58;
-  const vw = phoneW / 0.74;   // 除数 = 机身占视口宽度比例
+  const vw = phoneW / 0.66;   // 除数 = 机身占视口宽度比例
   const z = vw / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
 
   camera.position.z = z;
@@ -718,6 +718,14 @@ function tick(now) {
       screenTimer = 0;
       phone.updateScreen({ ...screenState(), t: now / 1000 });
     }
+  }
+
+  // 折叠时 V 形向观察者凸出、整机又随角度偏转，会让模型顶出视口上沿并向左漂，
+  // 这里按折叠角度做位置补偿，保证任何角度下都居中不溢出。
+  if (!game.broken) {
+    const ab = Math.abs(bend);
+    phone.group.position.y = 0.11 - ab * 0.15;
+    phone.group.position.x = ab * 0.14;
   }
 
   // 报废后缓慢自转，像在看一件遗物
