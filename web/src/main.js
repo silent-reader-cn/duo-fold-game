@@ -181,7 +181,7 @@ fillLight.position.set(4, -3, 3);
 scene.add(fillLight);
 
 const phone = createPhone();
-phone.group.position.y = 0.12;
+phone.group.position.y = 0.06;
 phone.group.rotation.x = -0.14;   // 略微俯视，增强立体感
 phone.group.rotation.y = 0.06;
 scene.add(phone.group);
@@ -663,7 +663,7 @@ function layout() {
 
   // 展开总宽 = HALF_W*2 = 1.58，按宽度适配（占屏 86%，留出边距）
   const phoneW = 1.58;
-  const vw = phoneW / 0.80;
+  const vw = phoneW / 0.74;   // 除数 = 机身占视口宽度比例
   const z = vw / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
 
   camera.position.z = z;

@@ -797,7 +797,7 @@ export function createPhone() {
   rightPivot.add(rMesh);
 
   // --- 内屏：一整块连续柔性曲面（不跟随两半刚性旋转，自己做弯曲）---
-  const inset = 0.030;
+  const inset = 0.052;   // 留出折叠时的弧长余量，防止投影溢出机身边缘
   const scrW = (HALF_W - inset) * 2 - 0.010;
   const scrH = HEIGHT - inset * 2;
 
@@ -876,8 +876,8 @@ export function createPhone() {
   screenMesh.renderOrder = 10;
   group.add(screenMesh);
 
-  const Z0 = THICK / 2 + 0.026;   // 屏幕基准面（高于机身正面，避免深度打架）
-  const SCREEN_LIFT = 0.026;
+  const Z0 = THICK / 2 + 0.010;   // 贴合机身正面（屏幕不参与深度测试，无需抬高）
+  const SCREEN_LIFT = 0.010;
 
   /**
    * 对称折叠。屏幕绕过铰链时形成「凸面」：铰链处略高于机身正面，
