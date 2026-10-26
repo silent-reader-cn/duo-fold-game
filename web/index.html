@@ -25,8 +25,6 @@
     </div>
 
     <div class="traits" id="traits"></div>
-    <div class="hint" id="hint">按住机身左右拖动 · 向右折起 / 向左掰弯</div>
-
     <div class="swipe-hint" id="swipeHint">
       <div class="swipe-track"><i class="swipe-dot"></i></div>
       <div class="swipe-text">向右滑动 · 第一次折叠</div>
@@ -48,13 +46,25 @@
   <div class="flash" id="flash"></div>
 
   <div class="book" id="book" hidden>
-    <div class="book-inner">
-      <div class="book-head">
-        <h2>成就手册</h2>
-        <button id="closeBook">关闭</button>
+    <div class="book-card">
+      <button class="book-close" id="closeBook" aria-label="关闭">✕</button>
+
+      <div class="book-top">
+        <div class="book-ring">
+          <svg viewBox="0 0 72 72">
+            <circle class="ring-bg" cx="36" cy="36" r="30"></circle>
+            <circle class="ring-fg" id="ringFg" cx="36" cy="36" r="30"></circle>
+          </svg>
+          <span id="ringText">0%</span>
+        </div>
+        <div class="book-heading">
+          <h2>成就手册</h2>
+          <p id="bookProgress">已解锁 0 / 25</p>
+        </div>
       </div>
+
       <div class="book-stats" id="bookStats"></div>
-      <div class="book-grid" id="bookGrid"></div>
+      <div class="book-scroll" id="bookGrid"></div>
     </div>
   </div>
 

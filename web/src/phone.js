@@ -237,7 +237,7 @@ function drawHome(ctx, st) {
       const idx = r * cols + c;
       const x = marginX + c * (iconW + gapX);
       const y = top + r * rowH;
-      const rad = [iconW * 0.25, iconW * 0.25, iconW * 0.25, iconW * 0.25];
+      const rad = [iconW * 0.224, iconW * 0.224, iconW * 0.224, iconW * 0.224];
 
       const pair = colorPairs[idx % colorPairs.length];
       const bg = ctx.createLinearGradient(x, y, x + iconW * 0.35, y + iconW);
@@ -249,12 +249,18 @@ function drawHome(ctx, st) {
 
       // 玻璃高光
       const gl = ctx.createLinearGradient(x, y, x, y + iconW);
-      gl.addColorStop(0, 'rgba(255,255,255,.30)');
-      gl.addColorStop(0.45, 'rgba(255,255,255,.04)');
-      gl.addColorStop(1, 'rgba(0,0,0,.16)');
+      gl.addColorStop(0, 'rgba(255,255,255,.38)');
+      gl.addColorStop(0.28, 'rgba(255,255,255,.10)');
+      gl.addColorStop(0.55, 'rgba(255,255,255,.02)');
+      gl.addColorStop(1, 'rgba(0,0,0,.20)');
       ctx.fillStyle = gl;
       roundRectPath(ctx, x, y, iconW, iconW, rad);
       ctx.fill();
+      // 内描边高光
+      ctx.strokeStyle = 'rgba(255,255,255,.16)';
+      ctx.lineWidth = 1;
+      roundRectPath(ctx, x + 0.5, y + 0.5, iconW - 1, iconW - 1, rad);
+      ctx.stroke();
 
       // 图标（Lucide 形状，白色描边压在彩色底板上）
       drawIconGlyph(ctx, ICON_NAMES[idx] || 'app-window', x + iconW / 2, y + iconW / 2, iconW * 0.54);
@@ -302,13 +308,13 @@ function drawHome(ctx, st) {
     dbg.addColorStop(0, dp[0]);
     dbg.addColorStop(1, dp[1]);
     ctx.fillStyle = dbg;
-    roundRectPath(ctx, x, y, diW, diW, [diW * 0.27, diW * 0.27, diW * 0.27, diW * 0.27]);
+    roundRectPath(ctx, x, y, diW, diW, [diW * 0.224, diW * 0.224, diW * 0.224, diW * 0.224]);
     ctx.fill();
     const gl2 = ctx.createLinearGradient(x, y, x, y + diW);
     gl2.addColorStop(0, 'rgba(255,255,255,.32)');
     gl2.addColorStop(1, 'rgba(0,0,0,.18)');
     ctx.fillStyle = gl2;
-    roundRectPath(ctx, x, y, diW, diW, [diW * 0.27, diW * 0.27, diW * 0.27, diW * 0.27]);
+    roundRectPath(ctx, x, y, diW, diW, [diW * 0.224, diW * 0.224, diW * 0.224, diW * 0.224]);
     ctx.fill();
 
     drawIconGlyph(ctx, DOCK_ICONS[i], x + diW / 2, y + diW / 2, diW * 0.52);

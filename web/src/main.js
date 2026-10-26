@@ -440,7 +440,8 @@ canvas.addEventListener('pointerdown', (e) => {
   dragging = true;
   dragStartX = e.clientX;
   canvas.setPointerCapture?.(e.pointerId);
-  $('hint').classList.add('gone');
+  const h = $('hint');
+  if (h) h.classList.add('gone');
 });
 
 canvas.addEventListener('pointermove', (e) => {
@@ -553,28 +554,53 @@ $('btnStop').addEventListener('click', () => {
 // ================= 成就手册 =================
 function renderBook() {
   const a = loadAch();
+  const total = TRAITS.length;
+  const unlocked = TRAITS.filter((t) => traitCount(a, t.id) > 0).length;
+  const pct = total ? unlocked / total : 0;
+
+  // 进度环
+  const CIRC = 188.5;
+  const ring = $('ringFg');
+  ring.style.strokeDashoffset = String(CIRC * (1 - pct));
+  $('ringText').textContent = Math.round(pct * 100) + '%';
+  $('bookProgress').textContent = `已解锁 ${unlocked} / ${total}`;
+
   $('bookStats').innerHTML = `
     <div class="book-stat"><b>${a.bestStage}</b><span>最高品阶</span></div>
-    <div class="book-stat"><b>${a.bestFolds}</b><span>最多折叠次数</span></div>
-    <div class="book-stat"><b>${a.runs}</b><span>已折坏台数</span></div>
+    <div class="book-stat"><b>${a.bestFolds}</b><span>最多折叠</span></div>
+    <div class="book-stat"><b>${a.runs}</b><span>折坏台数</span></div>
     <div class="book-stat"><b>${a.legendary}</b><span>传说词条</span></div>
   `;
 
-  const order = { legendary: 0, epic: 1, rare: 2, common: 3 };
-  const sorted = [...TRAITS].sort((x, y) => order[x.rarity] - order[y.rarity]);
-  $('bookGrid').innerHTML = sorted
-    .map((t) => {
-      const n = traitCount(a, t.id);
-      const rar = RARITY[t.rarity];
-      const locked = n === 0;
-      return `<div class="book-trait ${locked ? 'locked' : ''}">
-        <div class="bt-top">
-          <span class="bt-name" style="color:${locked ? 'var(--dim)' : rar.color}">${locked ? '???' : t.name}</span>
-          <span class="bt-rarity" style="color:${rar.color}">${rar.label}</span>
-        </div>
-        <div class="bt-desc">${locked ? '尚未解锁' : t.desc}</div>
-        ${locked ? '' : `<div class="bt-count">获得 ${n} 次</div>`}
-      </div>`;
+  const groups = [
+    { key: 'legendary', label: '传 说' },
+    { key: 'epic', label: '史 诗' },
+    { key: 'rare', label: '稀 有' },
+    { key: 'common', label: '普 通' },
+  ];
+
+  $('bookGrid').innerHTML = groups
+    .map((g) => {
+      const list = TRAITS.filter((t) => t.rarity === g.key);
+      if (!list.length) return '';
+      const got = list.filter((t) => traitCount(a, t.id) > 0).length;
+      const cards = list
+        .map((t) => {
+          const n = traitCount(a, t.id);
+          const rar = RARITY[t.rarity];
+          const locked = n === 0;
+          return `<div class="book-trait ${locked ? 'locked' : ''}">
+            <div class="bt-top">
+              <span class="bt-name" style="color:${locked ? 'var(--dim)' : rar.color}">${locked ? '???' : t.name}</span>
+              <span class="bt-rarity" style="color:${rar.color}">${rar.label}</span>
+            </div>
+            <div class="bt-desc">${locked ? '尚未解锁' : t.desc}</div>
+            ${locked ? '' : `<div class="bt-count">×${n}</div>`}
+          </div>`;
+        })
+        .join('');
+      return `<div class="book-group">${g.label} · ${got}/${list.length}</div>
+              <div class="book-grid">${cards}</div>`;
     })
     .join('');
 }
@@ -637,7 +663,7 @@ function layout() {
 
   // 展开总宽 = HALF_W*2 = 1.58，按宽度适配（占屏 86%，留出边距）
   const phoneW = 1.58;
-  const vw = phoneW / 0.74;
+  const vw = phoneW / 0.80;
   const z = vw / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
 
   camera.position.z = z;
