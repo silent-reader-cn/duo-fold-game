@@ -126,37 +126,41 @@ function durianTexture() {
 // ---------------- iOS Home 界面 ----------------
 // iOS 风格 App：实心图形 + 各自的标准配色（Bootstrap Icons, MIT）
 const APPS = [
-  { key: 'camera',   name: '相机',   c1: '#b8bcc4', c2: '#828994' },
-  { key: 'msg',      name: '信息',   c1: '#6ef58a', c2: '#14f17d' },
-  { key: 'music',    name: '音乐',   c1: '#ff6b81', c2: '#f0667e' },
-  { key: 'maps',     name: '地图',   c1: '#9ae89a', c2: '#51d184' },
-  { key: 'mail',     name: '邮件',   c1: '#6fc9ff', c2: '#62a3f0' },
-  { key: 'settings', name: '设置',   c1: '#b6b8be', c2: '#777780' },
-  { key: 'calendar', name: '日历',   c1: '#ffffff', c2: '#ffffff', dark: true },
-  { key: 'weather',  name: '天气',   c1: '#63b3ff', c2: '#6297f0' },
-  { key: 'clock',    name: '时钟',   c1: '#48484a', c2: '#28282b' },
-  { key: 'notes',    name: '备忘录', c1: '#ffe680', c2: '#ffd556' },
-  { key: 'reminder', name: '提醒',   c1: '#ffffff', c2: '#ffffff', dark: true },
-  { key: 'stocks',   name: '股票',   c1: '#48484a', c2: '#28282b' },
-  { key: 'wallet',   name: '钱包',   c1: '#48484a', c2: '#28282b' },
-  { key: 'files',    name: '文件',   c1: '#6fc9ff', c2: '#89b9f2' },
-  { key: 'podcast',  name: '播客',   c1: '#c9a0ff', c2: '#c7a9fa' },
-  { key: 'health',   name: '健康',   c1: '#ff7f97', c2: '#f0667e' },
-  { key: 'books',    name: '图书',   c1: '#ffc266', c2: '#f8b85d' },
-  { key: 'home',     name: '家庭',   c1: '#ffc266', c2: '#f8b85d' },
-  { key: 'store',    name: '商店',   c1: '#6fc9ff', c2: '#79bcff' },
-  { key: 'translate',name: '翻译',   c1: '#8fb4ff', c2: '#7fa0e9' },
-  { key: 'flash',    name: '快捷',   c1: '#a78bfa', c2: '#928be3' },
-  { key: 'calc',     name: '计算器', c1: '#ffc266', c2: '#ffc26b' },
-  { key: 'video',    name: '视频',   c1: '#ff7f97', c2: '#ee4889' },
-  { key: 'safari',   name: 'Safari', c1: '#8fd4ff', c2: '#62a3f0' },
+  { key: 'camera',           name: '相机' },
+  { key: 'messages',         name: '信息' },
+  { key: 'music',            name: '音乐' },
+  { key: 'maps',             name: '地图' },
+  { key: 'mail',             name: '邮件' },
+  { key: 'settings',         name: '设置' },
+  { key: 'calendar',         name: '日历' },
+  { key: 'weather',          name: '天气' },
+  { key: 'clock',            name: '时钟' },
+  { key: 'notes',            name: '备忘录' },
+  { key: 'facetime',         name: 'FaceTime' },
+  { key: 'robinhood',        name: '股票' },
+  { key: 'wallet',           name: '钱包' },
+  { key: 'files',            name: '文件' },
+  { key: 'shazam',           name: '识曲' },
+  { key: 'health',           name: '健康' },
+  { key: 'photos',           name: '照片' },
+  { key: 'appstore',         name: 'App Store' },
+  { key: 'google_translate', name: '翻译' },
+  { key: 'calculator',       name: '计算器' },
+  { key: 'safari',           name: 'Safari' },
+  { key: 'phone',            name: '电话' },
+  { key: 'compass',          name: '指南针' },
+  { key: 'google_drive',     name: '云盘' },
 ];
-const DOCK_APPS = [
-  { key: 'phone',  c1: '#6ef58a', c2: '#0fa958' },
-  { key: 'safari', c1: '#8fd4ff', c2: '#1a6fd4' },
-  { key: 'msg',    c1: '#6ef58a', c2: '#0fa958' },
-  { key: 'music',  c1: '#ff6b81', c2: '#d61b3c' },
-];
+
+// 预加载 iOS 26 图标（iOSIconPack, MIT）：直接使用真实图标位图
+const ICON_IMGS = {};
+for (const a of APPS) {
+  const img = new Image();
+  img.src = `./assets/icons/${a.key}.png`;
+  ICON_IMGS[a.key] = img;
+}
+
+const DOCK_APPS = ['phone', 'safari', 'messages', 'music'];
 
 /** 实心图标绘制（Bootstrap Icons 16x16 网格） */
 function drawFillGlyph(ctx, key, cx, cy, size, color) {
@@ -239,11 +243,11 @@ function drawHome(ctx, st) {
 
   // --- 图标网格 6x4 ---
   const cols = 6, rows = 4;
-  const iconW = 100;
+  const iconW = 94;
   const gapX = (CW - cols * iconW) / (cols + 1);
   const marginX = gapX;
-  const top = 80;
-  const rowH = 128;
+  const top = 74;
+  const rowH = 133;   // 图标 + 名称 + 呼吸间距
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -253,34 +257,28 @@ function drawHome(ctx, st) {
       const y = top + r * rowH;
       const rad = [iconW * 0.224, iconW * 0.224, iconW * 0.224, iconW * 0.224];
 
-      const bg = ctx.createLinearGradient(x, y, x, y + iconW);
-      bg.addColorStop(0, app.c1);
-      bg.addColorStop(1, app.c2);
-      ctx.fillStyle = bg;
-      roundRectPath(ctx, x, y, iconW, iconW, rad);
-      ctx.fill();
+      const img = ICON_IMGS[app.key];
+      if (img && img.complete && img.naturalWidth) {
+        ctx.save();
+        roundRectPath(ctx, x, y, iconW, iconW, rad);
+        ctx.clip();
+        ctx.drawImage(img, x, y, iconW, iconW);
+        ctx.restore();
+      } else {
+        // 尚未加载完成时用中性底板占位
+        ctx.fillStyle = 'rgba(160,168,182,.55)';
+        roundRectPath(ctx, x, y, iconW, iconW, rad);
+        ctx.fill();
+      }
 
-      // 玻璃高光（iOS 图标的顶部反光）
-      const gl = ctx.createLinearGradient(x, y, x, y + iconW);
-      gl.addColorStop(0, 'rgba(255,255,255,.38)');
-      gl.addColorStop(0.30, 'rgba(255,255,255,.10)');
-      gl.addColorStop(0.56, 'rgba(255,255,255,.02)');
-      gl.addColorStop(1, 'rgba(0,0,0,.07)');
-      ctx.fillStyle = gl;
-      roundRectPath(ctx, x, y, iconW, iconW, rad);
-      ctx.fill();
-      // 内描边高光
-      ctx.strokeStyle = 'rgba(255,255,255,.20)';
-      ctx.lineWidth = 1;
-      roundRectPath(ctx, x + 0.5, y + 0.5, iconW - 1, iconW - 1, rad);
-      ctx.stroke();
-
-      // 实心图形（白底图标改用深色）
-      drawFillGlyph(
-        ctx, app.key,
-        x + iconW / 2, y + iconW / 2, iconW * 0.46,
-        app.dark ? 'rgba(38,40,48,.88)' : 'rgba(255,255,255,.97)'
-      );
+      // 图标名（浅色壁纸用深色带描边，保证任何底色都读得清）
+      ctx.textAlign = 'center';
+      ctx.font = `600 21px ${CJK}`;
+      ctx.strokeStyle = 'rgba(255,255,255,.72)';
+      ctx.lineWidth = 4;
+      ctx.strokeText(app.name, x + iconW / 2, y + iconW + 27);
+      ctx.fillStyle = 'rgba(20,24,34,.92)';
+      ctx.fillText(app.name, x + iconW / 2, y + iconW + 27);
 
     }
   }
@@ -314,24 +312,16 @@ function drawHome(ctx, st) {
   for (let i = 0; i < dockN; i++) {
     const x = dockX + dgap + i * (diW + dgap);
     const y = dockY + (dockH - diW) / 2;
-    const dApp = DOCK_APPS[i];
+    const dKey = DOCK_APPS[i];
+    const dImg = ICON_IMGS[dKey];
     const drad = [diW * 0.224, diW * 0.224, diW * 0.224, diW * 0.224];
-
-    const dbg = ctx.createLinearGradient(x, y, x, y + diW);
-    dbg.addColorStop(0, dApp.c1);
-    dbg.addColorStop(1, dApp.c2);
-    ctx.fillStyle = dbg;
-    roundRectPath(ctx, x, y, diW, diW, drad);
-    ctx.fill();
-
-    const gl2 = ctx.createLinearGradient(x, y, x, y + diW);
-    gl2.addColorStop(0, 'rgba(255,255,255,.32)');
-    gl2.addColorStop(1, 'rgba(0,0,0,.14)');
-    ctx.fillStyle = gl2;
-    roundRectPath(ctx, x, y, diW, diW, drad);
-    ctx.fill();
-
-    drawFillGlyph(ctx, dApp.key, x + diW / 2, y + diW / 2, diW * 0.46, 'rgba(255,255,255,.97)');
+    if (dImg && dImg.complete && dImg.naturalWidth) {
+      ctx.save();
+      roundRectPath(ctx, x, y, diW, diW, drad);
+      ctx.clip();
+      ctx.drawImage(dImg, x, y, diW, diW);
+      ctx.restore();
+    }
   }
 }
 
