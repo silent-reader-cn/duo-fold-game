@@ -1,0 +1,19 @@
+{
+  "name": "duo-fold",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npx --yes serve -l 21001 .",
+    "build": "echo 'static site'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "lucide-static": "^1.61.0",
+    "three": "^0.186.1"
+  },
+  "private": true
+}
