@@ -854,7 +854,7 @@ export function createPhone() {
         }
 
         // 折线附近：内容被压缩（透视感）
-        float squeeze = uFold * 0.05 * exp(-d * 30.0);
+        float squeeze = uFold * 0.018 * exp(-d * 30.0);
         vec2 uv = vec2(0.5 + (vUv.x - 0.5) * (1.0 - squeeze), vUv.y);
 
         // 渐变模糊：越靠近折线越糊
@@ -920,7 +920,7 @@ export function createPhone() {
     const halfW = scrW / 2;
     const dz = THICK / 2 + 0.010;
     const innerHalf = HALF_W - BORDER;
-    const rb = Math.min(0.115, innerHalf * 0.45);  // 铰链过渡带：宽度要超过机身厚度
+    const rb = Math.min(0.040, innerHalf * 0.18);  // 铰链过渡带：压到折痕一线
 
     for (let i = 0; i < posAttr.count; i++) {
       const s = baseX[i];
@@ -942,11 +942,13 @@ export function createPhone() {
       // 凸起高度必须两侧共用：按侧加权会让铰链处左右 z 值不相等，屏幕中间直接裂开
       // 折到 90 度时屏幕会挤成一条线，机身侧面(4.8mm)就会从后面露出来。
       // 让铰链处鼓出比机身厚度更宽更靠前的弧，才能始终盖住机身
-      const bulge = 0.065 * Math.sin(ab);
+      const bulge = 0.052 * Math.sin(ab);
       const hz = dz + bulge;
 
-      const t = Math.min(1, d / rb);
-      const ease = t * t * (3 - 2 * t);
+      // 过渡带的横向走势必须立刻跟上外侧：
+      // 线性插值时前 6mm 内 x 只走了外侧的 1/6，图标就会在折痕两侧被压扁。
+      // 用 0.35 次幂快速饱和，让顶点密度接近外侧。
+      const ease = Math.pow(Math.min(1, d / rb), 0.35);
 
       arr[i * 3] = tx * ease;
       arr[i * 3 + 2] = hz + (tz - hz) * ease;
