@@ -150,11 +150,15 @@ export class Game {
 
     // 碎裂
     if (!guarded && r < pBreak) {
-      if (this.acShield) {
-        this.acShield = false;
+      // AppleCare+ 自动生效：不需要手动开启，碎裂瞬间自动换机（一辈子只有一次）
+      if (this.acUsed < 1) {
         this.acUsed += 1;
+        this.acShield = false;
         this.stage = Math.max(1, this.stage - 1);
-        return { result: 'ac', text: '屏幕窜出一道绿线——AppleCare+ 挡下了，换机。标签被降一阶。' };
+        return {
+          result: 'ac',
+          text: '屏幕窜出一道绿线——AppleCare+ 自动生效，直接换机。代价是标签降一阶。',
+        };
       }
       this.broken = true;
       this.finished = true;
@@ -203,11 +207,9 @@ export class Game {
     };
   }
 
+  // AppleCare+ 已改为自动生效，不再手动开启
   useAC() {
-    if (this.broken || this.finished || this.acShield || this.acUsed >= 1) return null;
-    this.acUsed += 1;
-    this.acShield = true;
-    return '你花 2599 元买了 AppleCare+。碎裂时能免死一次，但标签要降一阶。';
+    return null;
   }
 
   stop() {

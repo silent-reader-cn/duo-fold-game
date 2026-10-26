@@ -220,14 +220,16 @@ function initShards() {
   }));
 }
 
-function burstShards() {
+function burstShards(tint, count) {
   if (!shardPoints) return;
   const pos = shardPoints.geometry.attributes.position.array;
   const col = shardPoints.geometry.attributes.color.array;
   const gx = phone.group.position.x;
   const gy = phone.group.position.y;
 
-  for (let i = 0; i < SHARD_COUNT; i++) {
+  const n = Math.min(count || SHARD_COUNT, SHARD_COUNT);
+  const base = tint ? new THREE.Color(tint) : null;
+  for (let i = 0; i < n; i++) {
     pos[i * 3] = gx + (Math.random() - 0.5) * 1.45;
     pos[i * 3 + 1] = gy + (Math.random() - 0.5) * 1.05;
     pos[i * 3 + 2] = 0.06;
@@ -243,9 +245,15 @@ function burstShards() {
     d.life = 1.3 + Math.random() * 1.2;
 
     const t = Math.random();
-    col[i * 3] = 0.72 + t * 0.28;
-    col[i * 3 + 1] = 0.86 + t * 0.14;
-    col[i * 3 + 2] = 1.0;
+    if (base) {
+      col[i * 3] = base.r * (0.8 + t * 0.5);
+      col[i * 3 + 1] = base.g * (0.8 + t * 0.5);
+      col[i * 3 + 2] = base.b * (0.8 + t * 0.5);
+    } else {
+      col[i * 3] = 0.72 + t * 0.28;
+      col[i * 3 + 1] = 0.86 + t * 0.14;
+      col[i * 3 + 2] = 1.0;
+    }
   }
   shardPoints.geometry.attributes.position.needsUpdate = true;
   shardPoints.geometry.attributes.color.needsUpdate = true;
@@ -382,13 +390,64 @@ function celebrateTrait(t) {
   sfx(t.rarity);
   haptic(HAPTIC_BY_RARITY[t.rarity] || [18]);
   updateTraitsUI();
-  if (t.rarity === 'epic') flashScreen('violet');
+
   if (t.rarity === 'legendary') {
+    // 传说：金色三重脉冲 + 金色粒子迸发 + 镜头轻震
     flashScreen('gold');
-    for (let i = 0; i < 6; i++) setTimeout(() => sfx('legendary'), i * 90);
+    burstShards(0xffb020, 90);
+    shakeCamera(0.028);
+    [0, 260, 520].forEach((ms, i) =>
+      setTimeout(() => {
+        triggerGlow(0xffb020, 1.1);
+        sfx('legendary');
+      }, ms)
+    );
+    showRarityBanner(t, 'legendary');
+  } else if (t.rarity === 'epic') {
+    // 史诗：紫色双脉冲 + 紫色粒子
+    flashScreen('violet');
+    burstShards(0xb76bff, 55);
+    shakeCamera(0.016);
+    setTimeout(() => triggerGlow(0xb76bff, 0.9), 240);
+    showRarityBanner(t, 'epic');
   } else if (t.rarity === 'rare') {
     flashScreen('blue');
+    showRarityBanner(t, 'rare');
   }
+}
+
+function showAcBanner() {
+  const el = document.createElement('div');
+  el.className = 'rarity-banner ac-banner';
+  el.style.setProperty('--rc', '#00ff88');
+  el.innerHTML = '<span class="rb-label">APPLE CARE+</span><span class="rb-name">自动生效 · 已换机</span>';
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 480);
+  }, 2400);
+}
+
+// 稀有度横幅：从模型背面弹出的短促光带，不遮挡模型正面
+function showRarityBanner(t, rarity) {
+  const RAR = {
+    rare: { label: '稀有词条', color: '#4aa3ff' },
+    epic: { label: '史诗词条', color: '#b76bff' },
+    legendary: { label: '传说词条', color: '#ffb020' },
+  };
+  const cfg = RAR[rarity];
+  if (!cfg) return;
+  const el = document.createElement('div');
+  el.className = 'rarity-banner';
+  el.style.setProperty('--rc', cfg.color);
+  el.innerHTML = `<span class="rb-label">${cfg.label}</span><span class="rb-name">${t.name}</span>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 480);
+  }, rarity === 'legendary' ? 2200 : 1500);
 }
 
 function updateUI() {
@@ -412,7 +471,7 @@ function updateUI() {
   const playable = !game.broken && !game.finished;
   $('btnFan').disabled = !playable || game.fanUsed >= FAN_MAX;
   $('btnSand').disabled = !playable || game.sandUsed >= SAND_MAX;
-  $('btnAC').disabled = !playable || game.acShield || game.acUsed >= 1;
+  $('btnAC').disabled = true;   // 已改为自动生效，只做状态展示
   $('btnStop').disabled = !playable;
   const setBadge = (id, text) => {
     const b = $(id)?.querySelector('b');
@@ -420,7 +479,7 @@ function updateUI() {
   };
   setBadge('btnFan', `${FAN_MAX - game.fanUsed}`);
   setBadge('btnSand', `${SAND_MAX - game.sandUsed}`);
-  setBadge('btnAC', game.acShield ? '生效中' : (game.acUsed >= 1 ? '已用' : '1'));
+  setBadge('btnAC', game.acUsed >= 1 ? '已用' : '待命');
 
   updateTraitsUI();
   phone.updateScreen(screenState());
@@ -510,8 +569,17 @@ function doFold(strength) {
     if (game.stage === 5) { sfx('glitch'); log('折线处窜出一缕荧光绿。有人开始夸它好看了。'); }
     if (game.stage >= 9) log('这已经不能叫手机了。');
   } else if (r.result === 'ac') {
+    // AppleCare+ 自动生效：绿色脉冲 + 绿色粒子 + 强震动
     sfx('glitch');
+    sfx('up');
+    haptic([60, 70, 60, 70, 140]);
+    triggerGlow(0x00ff88, 1.8);
+    burstShards(0x00ff88, 70);
+    shakeCamera(0.035);
+    setTimeout(() => triggerGlow(0x00ff88, 1.2), 320);
+    showAcBanner();
     log(r.text);
+    log('这一张 AppleCare+ 已经用掉了。下次再裂，就是 7998 元。');
   } else if (r.result === 'guarded') {
     log(strength > FOLD_THRESHOLD ? '硬扛下来了。铰链再也合不严。' : '');
   } else {
@@ -539,10 +607,8 @@ $('btnSand').addEventListener('click', () => {
   res.gained.forEach((t) => setTimeout(() => celebrateTrait(t), 220));
   updateUI();
 });
-$('btnAC').addEventListener('click', () => {
-  const t = game.useAC();
-  if (t) { log(t); updateUI(); }
-});
+// AppleCare+ 已自动生效，按钮只展示状态
+$('btnAC').addEventListener('click', (e) => e.preventDefault());
 
 $('btnStop').addEventListener('click', () => {
   if (!game.stop()) return;
@@ -625,6 +691,7 @@ function showCard() {
     broken: game.broken,
     quote: game.pickQuote(),
     serial: `No.${String(1000 + game.folds * 7 + game.stage * 13).padStart(4, '0')}`,
+    traits: game.traits.map((id) => TRAIT_MAP[id]).filter(Boolean),
   });
   const url = c.toDataURL('image/png');
   $('cardImg').src = url;

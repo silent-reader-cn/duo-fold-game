@@ -375,6 +375,57 @@ function growCrack(ctx, x, y, angle, len, width, depth, rnd) {
   }
 }
 
+/**
+ * 高品阶专属覆层：7 阶起屏幕开始"不对劲"，9 阶进入重度故障。
+ * 低品阶完全不触发，保证前段画面干净。
+ */
+function overlayHighStage(ctx, stage, t) {
+  if (stage < 7) return;
+  const heavy = stage >= 9;
+  const lvl = heavy ? 1 : 0.55;
+
+  // 边缘充血：越往后越像一块要坏的屏
+  const vig = ctx.createRadialGradient(CW / 2, CH / 2, CH * 0.34, CW / 2, CH / 2, CW * 0.72);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, heavy ? 'rgba(120,0,12,.42)' : 'rgba(90,0,10,.22)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, CW, CH);
+
+  // 横向扫描线
+  const lineGap = heavy ? 4 : 6;
+  ctx.fillStyle = `rgba(0,0,0,${heavy ? 0.20 : 0.11})`;
+  for (let y = 0; y < CH; y += lineGap) ctx.fillRect(0, y, CW, 1);
+
+  // 缓慢下移的亮带（扫描头）
+  const sweepY = ((t * 42) % (CH + 220)) - 110;
+  const sw = ctx.createLinearGradient(0, sweepY - 70, 0, sweepY + 70);
+  sw.addColorStop(0, 'rgba(120,255,190,0)');
+  sw.addColorStop(0.5, `rgba(120,255,190,${0.10 * lvl})`);
+  sw.addColorStop(1, 'rgba(120,255,190,0)');
+  ctx.fillStyle = sw;
+  ctx.fillRect(0, sweepY - 70, CW, 140);
+
+  // 9 阶：撕裂条 + 幻色偏移
+  if (heavy) {
+    let seed = 4409 + Math.floor(t * 3.1);
+    const rnd = () => {
+      seed = (seed * 16807) % 2147483647;
+      return (seed - 1) / 2147483646;
+    };
+    for (let i = 0; i < 3; i++) {
+      const y = rnd() * CH;
+      const h = 4 + rnd() * 16;
+      const dx = (rnd() - 0.5) * 26;
+      ctx.fillStyle = `rgba(${Math.floor(120 + rnd() * 135)},${Math.floor(rnd() * 60)},${Math.floor(rnd() * 120)},.16)`;
+      ctx.fillRect(dx, y, CW, h);
+    }
+    // 四角警示暗块
+    ctx.fillStyle = 'rgba(150,0,20,.16)';
+    ctx.fillRect(0, 0, CW, 3);
+    ctx.fillRect(0, CH - 3, CW, 3);
+  }
+}
+
 export function drawScreen(ctx, st) {
   const { stage, folds, broken, matte, sand, t = 0 } = st;
   const traits = st.traits || [];
@@ -684,6 +735,9 @@ export function drawScreen(ctx, st) {
   ctx.fillStyle = vig;
   ctx.fillRect(0, 0, CW, CH);
 
+  // —— 高品阶专属覆层 ——
+  overlayHighStage(ctx, stage, t);
+
   ctx.restore();
 }
 
@@ -773,10 +827,16 @@ export function drawCover(ctx, st) {
   ctx.restore();
 }
 
+// 画布超采样倍数：物理像素 = 逻辑尺寸 x SS，上下文预先 scale，
+// 所有绘制仍用原来的逻辑坐标，但贴到 3D 面上清晰度翻倍
+const SS = 2;
+
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
-  c.width = w;
-  c.height = h;
+  c.width = w * SS;
+  c.height = h * SS;
+  const g = c.getContext('2d');
+  g.scale(SS, SS);
   return c;
 }
 
@@ -1088,11 +1148,13 @@ export function createPhone() {
 
   function updateScreen(state) {
     const ci = canvasInner.getContext('2d');
+    ci.setTransform(SS, 0, 0, SS, 0, 0);
     ci.clearRect(0, 0, CW, CH);
     drawScreen(ci, state);
     texInner.needsUpdate = true;
 
     const cc = coverCanvas.getContext('2d');
+    cc.setTransform(SS, 0, 0, SS, 0, 0);
     cc.clearRect(0, 0, SW, SH);
     drawCover(cc, state);
     coverTex.needsUpdate = true;
