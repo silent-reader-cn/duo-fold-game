@@ -1,3 +1,4 @@
 .godot/
 build/
 *.tmp
+web/node_modules/
