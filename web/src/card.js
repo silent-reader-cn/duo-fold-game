@@ -94,7 +94,7 @@ export function makeCard(st) {
   ctx.textAlign = 'left';
   ctx.fillStyle = accent;
   ctx.font = `700 30px ${CJK}`;
-  ctx.fillText('iPHONE DUO', m, 122);
+  ctx.fillText('DUO FOLD', m, 122);
 
   ctx.fillStyle = 'rgba(150,158,172,.85)';
   ctx.font = `400 27px ${CJK}`;
@@ -142,7 +142,9 @@ export function makeCard(st) {
   drawScreen(sctx, {
     stage: st.stage,
     folds: st.folds,
-    broken: st.broken,
+    // 展示「碎裂前最后一次折叠」的完好状态：屏幕还亮着、满是伤痕，
+    // 而不是报废后的黑屏——那张更适合当遗照。
+    broken: false,
     matte: st.fan === 0,
     sand: st.sand > 0,
     traits: traits.map((t) => t.id),
@@ -217,7 +219,7 @@ export function makeCard(st) {
   const items = [
     { k: '吹风机', v: st.fan > 0 ? `×${st.fan}` : '未用' },
     { k: '沙子', v: st.sand > 0 ? `×${st.sand}` : '未用' },
-    { k: 'AppleCare+', v: st.ac > 0 ? '已用' : '未用' },
+    { k: '延保', v: st.ac > 0 ? '已用' : '未用' },
   ];
   const cellW = 232;
   const cellGap = 26;

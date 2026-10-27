@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import { FILL_ICONS } from './ios_icons.js';
 
-// ================= 真实尺寸（iPhone Duo）=================
+// ================= 真实尺寸（Duo Fold）=================
 // 内屏 7.6" 4:3 → 展开 157×112mm；外屏 5.4" 在背面；展开厚 5.2mm
 // 3D 单位：0.01 单位 ≈ 1mm
 const HALF_W = 0.79;       // 单侧宽（展开总宽 1.58）
 const HEIGHT = 1.15;       // 机身高度（展开 1.37:1 ≈ 4:3）
 const THICK = 0.052;       // 展开厚度
-const CORNER = 0.105;      // 机身圆角（iPhone 式大圆角）
+const CORNER = 0.105;      // 机身圆角（大圆角）
 const BEVEL = 0.009;
 
 // 内屏画布（整屏 1.4:1，左右各取一半）
@@ -60,7 +60,7 @@ function roundRectPath(ctx, x, y, w, h, radii) {
   ctx.closePath();
 }
 
-// ---------------- 榴莲 logo（避嫌用，替代苹果标）----------------
+// ---------------- 榴莲 logo（避嫌用，替代厂商标）----------------
 function drawDurian(ctx, cx, cy, R) {
   // 刺
   ctx.fillStyle = '#8e9a3a';

@@ -418,7 +418,7 @@ html, body {
 }
 .stage-bar i {
   flex: 1; height: 4px; border-radius: 2px;
-  background: rgba(255,255,255,.17);
+  background: rgba(255,255,255,.26);
   transition: background .35s, box-shadow .35s;
 }
 .stage-bar i.on {

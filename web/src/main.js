@@ -439,7 +439,7 @@ function showRarityBanner(t, rarity) {
 }
 
 function showAcBanner() {
-  playBand('APPLE CARE+', '自动生效 · 已换机', '#00ff88', 2350, 'epic');
+  playBand('CARE+', '自动生效 · 已换机', '#00ff88', 2350, 'epic');
 }
 
 function playBand(label, name, color, hold, tier) {
@@ -559,6 +559,9 @@ canvas.addEventListener('pointerdown', (e) => {
   if (h) h.classList.add('gone');
 });
 
+let lastSandTick = 0;
+let lastBendSeen = 0;
+
 canvas.addEventListener('pointermove', (e) => {
   if (!dragging) return;
   const dx = (e.clientX - dragStartX) / (window.innerWidth * 0.58);
@@ -567,6 +570,20 @@ canvas.addEventListener('pointermove', (e) => {
     : Math.max(dx * (BEND_BACK / 0.5), -BEND_BACK);
   bend = targetBend;
   phone.setBend(bend);
+
+  // 沙子卡在铰链里：手指滑动过程中就该有细小的阻尼震动，
+  // 而不是等到松手判定才震一下。按位移节流，避免每条指针事件都触发。
+  if (game.sandUsed > 0 && !game.broken) {
+    const now = performance.now();
+    const moved = Math.abs(bend - lastBendSeen);
+    if (now - lastSandTick > 85 && moved > 0.012) {
+      lastSandTick = now;
+      lastBendSeen = bend;
+      // 越用力掰，沙粒摩擦越明显
+      const ms = Math.round(5 + Math.min(7, moved * 90));
+      haptic([ms]);
+    }
+  }
 });
 
 function releasePointer() {
@@ -625,7 +642,7 @@ function doFold(strength) {
     if (game.stage === 5) { sfx('glitch'); log('折线处窜出一缕荧光绿。有人开始夸它好看了。'); }
     if (game.stage >= 9) log('这已经不能叫手机了。');
   } else if (r.result === 'ac') {
-    // AppleCare+ 自动生效：绿色脉冲 + 绿色粒子 + 强震动
+    // 延保自动生效：绿色脉冲 + 绿色粒子 + 强震动
     sfx('glitch');
     sfx('up');
     haptic([60, 70, 60, 70, 140]);
@@ -635,7 +652,7 @@ function doFold(strength) {
     setTimeout(() => triggerGlow(0x00ff88, 1.2), 320);
     showAcBanner();
     log(r.text);
-    log('这一张 AppleCare+ 已经用掉了。下次再裂，就是 7998 元。');
+    log('这一张延保已经用掉了。下次再裂，就是 7998 元。');
   } else if (r.result === 'guarded') {
     log(strength > FOLD_THRESHOLD ? '硬扛下来了。铰链再也合不严。' : '');
   } else {
@@ -663,7 +680,7 @@ $('btnSand').addEventListener('click', () => {
   res.gained.forEach((t) => setTimeout(() => celebrateTrait(t), 220));
   updateUI();
 });
-// AppleCare+ 已自动生效，按钮只展示状态
+// 延保已自动生效，按钮只展示状态
 $('btnAC').addEventListener('click', (e) => e.preventDefault());
 
 $('btnStop').addEventListener('click', () => {

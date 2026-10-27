@@ -1,7 +1,7 @@
 // 数值系统 —— 参数直接沿用 Godot 版跑过 3 万次模拟的那一套
 export const STAGE_NAMES = [
   '全新未拆封', '初见折痕', '折痕明显', '偶发闪屏', '一缕绿线',
-  '触控时灵', '久经沙场', '战损成色', '苹果拒保', '传奇·一掰就碎',
+  '触控时灵', '久经沙场', '战损成色', '厂商拒保', '传奇·一掰就碎',
 ];
 export const MAX_STAGE = 10;
 
@@ -153,14 +153,14 @@ export class Game {
 
     // 碎裂
     if (!guarded && r < pBreak) {
-      // AppleCare+ 自动生效：不需要手动开启，碎裂瞬间自动换机（一辈子只有一次）
+      // 延保自动生效：不需要手动开启，碎裂瞬间自动换机（一辈子只有一次）
       if (this.acUsed < 1) {
         this.acUsed += 1;
         this.acShield = false;
         this.stage = Math.max(1, this.stage - 1);
         return {
           result: 'ac',
-          text: '屏幕窜出一道绿线——AppleCare+ 自动生效，直接换机。代价是标签降一阶。',
+          text: '屏幕窜出一道绿线——延保自动生效，直接换机。代价是标签降一阶。',
         };
       }
       this.broken = true;
@@ -210,7 +210,7 @@ export class Game {
     };
   }
 
-  // AppleCare+ 已改为自动生效，不再手动开启
+  // 延保已改为自动生效，不再手动开启
   useAC() {
     return null;
   }
@@ -237,7 +237,7 @@ export class Game {
     }
     const arr = [
       '你确实没用力。它确实碎了。（预告）',
-      '建议购买 AppleCare+。',
+      '建议购买延保。',
       '折痕还在可接受范围内。今天。',
       '形态完好，心情复杂。',
     ];
