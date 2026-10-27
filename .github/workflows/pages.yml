@@ -38,7 +38,7 @@ jobs:
         with:
           enablement: true
 
-      # 只上传 web/：Godot 存档工程、docs、tools 都不进站点
+      # 只上传 web/：docs、.github 都不进站点
       - name: Upload web/ as Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

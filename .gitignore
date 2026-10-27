@@ -3,3 +3,6 @@ build/
 *.tmp
 web/node_modules/
 .preview/
+
+# 本地私有：不外发（含真实品牌名，与项目的去品牌化立场冲突）
+_private/
