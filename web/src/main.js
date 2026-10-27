@@ -154,7 +154,7 @@ const canvas = $('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
+renderer.toneMappingExposure = 1.30;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
@@ -166,17 +166,17 @@ camera.position.set(0, 0, 9.5);
 const envTex = makeEnvironment(renderer);
 scene.environment = envTex;
 
-scene.add(new THREE.HemisphereLight(0xc3d4ff, 0x14171c, 0.5));
+scene.add(new THREE.HemisphereLight(0xd6e4ff, 0x1e232b, 0.95));
 
-const keyLight = new THREE.DirectionalLight(0xffffff, 2.4);
+const keyLight = new THREE.DirectionalLight(0xffffff, 3.3);
 keyLight.position.set(3.5, 4.5, 6);
 scene.add(keyLight);
 
-const rimLight = new THREE.DirectionalLight(0x7ea0ff, 1.5);
+const rimLight = new THREE.DirectionalLight(0x8fb0ff, 2.0);
 rimLight.position.set(-5, -1.5, -4);
 scene.add(rimLight);
 
-const fillLight = new THREE.DirectionalLight(0xffd0a8, 0.7);
+const fillLight = new THREE.DirectionalLight(0xffd8b8, 1.1);
 fillLight.position.set(4, -3, 3);
 scene.add(fillLight);
 

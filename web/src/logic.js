@@ -17,11 +17,14 @@ export const SAND_MAX = 1;
 
 
 // ================= 词条系统 =================
+// 权重是按"该稀有度每个词条"给的，再按词条数量累加：
+// 池内 7 普通 / 7 稀有 / 5 史诗 / 5 传说（道具专属已排除）
+// 目标：传说占比约 2.9%，配合 fold 的词条触发率，约 100 折能撞到一次
 export const RARITY = {
-  common: { label: '普通', color: '#9aa0a8', weight: 78 },
-  rare: { label: '稀有', color: '#4aa3ff', weight: 18 },
-  epic: { label: '史诗', color: '#b76bff', weight: 3.85 },
-  legendary: { label: '传说', color: '#ffb020', weight: 0.3 },
+  common: { label: '普通', color: '#9aa0a8', weight: 62 },
+  rare: { label: '稀有', color: '#4aa3ff', weight: 34 },
+  epic: { label: '史诗', color: '#b76bff', weight: 16 },
+  legendary: { label: '传说', color: '#ffb020', weight: 7.5 },
 };
 
 export const TRAITS = [
