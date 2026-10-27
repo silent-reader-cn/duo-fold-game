@@ -553,8 +553,10 @@ html, body {
   white-space: nowrap;
 }
 .sh-txt em {
+  /* 引导条现在浮在亮壁纸/机身上，副文案不能再用 --dim 那档灰 */
   font-style: normal; font-size: 10px; letter-spacing: .1em;
-  color: var(--dim);
+  color: rgba(206, 214, 226, .8);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, .9);
   white-space: nowrap;
 }
 
