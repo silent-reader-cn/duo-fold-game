@@ -8,6 +8,87 @@
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
+  <!-- 启动守卫：模块加载失败（缓存混版 / WebGL 不可用 / 语法不支持）时把真实错误显示出来。
+       这段是内联脚本，不经过模块缓存，模块全挂它也能跑 -->
+  <script>
+  (function () {
+    var BUILD = '2026-10-27a';
+    window.__duoBuild = BUILD;
+    var box = null;
+
+    function ensureBox() {
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'bootErr';
+        box.setAttribute('role', 'alert');
+        document.body.appendChild(box);
+      }
+      return box;
+    }
+
+    // 诊断条：错误原文 + 当前 build，方便一眼区分"旧缓存"和"设备不支持"
+    function show(msg) {
+      var b = ensureBox();
+      b.textContent = '启动失败 build ' + BUILD + '：' + msg;
+      b.hidden = false;
+      if (!document.getElementById('bootRetry')) {
+        var btn = document.createElement('button');
+        btn.id = 'bootRetry';
+        btn.type = 'button';
+        btn.textContent = '重试';
+        b.appendChild(btn);
+      }
+    }
+    window.__bootErr = show;
+
+    window.addEventListener('error', function (e) {
+      var t = e.target;
+      if (t && t !== window && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+        show('资源加载失败 ' + (t.src || t.href || ''));
+        return;
+      }
+      show((e.message || '未知错误') +
+        (e.filename ? ' @ ' + String(e.filename).split('/').pop() + ':' + e.lineno : ''));
+    }, true);
+    window.addEventListener('unhandledrejection', function (e) {
+      var r = e.reason;
+      show(String((r && (r.message || r)) || 'Promise 异常'));
+    });
+    setTimeout(function () {
+      if (!window.__duo) probeModules();
+    }, 3500);
+
+    // 逐个探测模块文件：能明确说出"哪个文件没取到"，而不是让玩家猜缓存
+    var FILES = [
+      './src/main.js', './src/logic.js', './src/phone.js',
+      './src/card.js', './src/achievements.js', './vendor/three.module.js',
+    ];
+    function probeModules() {
+      Promise.all(FILES.map(function (f) {
+        return fetch(f, { cache: 'no-store' }).then(function (r) {
+          return r.ok ? null : f + ' → HTTP ' + r.status;
+        }).catch(function (e) {
+          return f + ' → ' + (e && e.message ? e.message : '请求失败');
+        });
+      })).then(function (list) {
+        var bad = list.filter(Boolean);
+        show(bad.length
+          ? '这些脚本没取到：' + bad.join('；')
+          : '脚本都取到了但没跑起来（多半是浏览器内核或 WebGL 的问题）');
+      }).catch(function () {
+        show('主模块没跑起来，且探测脚本也失败了');
+      });
+    }
+
+    // 重试：带时间戳重新请求文档；服务端 no-store 保证脚本也跟着重取
+    document.addEventListener('click', function (e) {
+      if (e.target && e.target.id === 'bootRetry') {
+        location.href = location.pathname + '?r=' + Date.now();
+      }
+    });
+  })();
+  </script>
+
   <div class="bg-fx" aria-hidden="true">
     <div class="orb o1"></div>
     <div class="orb o2"></div>

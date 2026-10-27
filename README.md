@@ -36,11 +36,21 @@
 
 ```bash
 cd web
-python -m http.server 21000 --bind 0.0.0.0
+python serve.py --port 21000 --bind 0.0.0.0   # 带 Cache-Control: no-store 的预览服务
 # 打开 http://localhost:21000
 ```
 
+别用 `python -m http.server`：它只发 Last-Modified，手机浏览器会按启发式缓存 ES module，
+部署后容易出现「新 main.js 配旧 logic.js」导致整页 JS 挂掉、只剩静态外壳（模型空白）。
+`serve.py` 强制 no-store，并给 `.mjs` 发正确的 `text/javascript`。
+
 无需构建，`index.html` 用 importmap 直接加载 `vendor/` 里的 three。
+
+### 启动失败怎么查
+
+`index.html` 里有一段内联启动守卫：模块加载失败、WebGL2 拿不到、或 3.5s 内 `window.__duo`
+仍未就绪时，页面底部会出现红色诊断条，直接写出**是哪个文件没取到 / 哪一步抛错**，并带一个
+「重试」按钮（带时间戳重新请求，配合 no-store 可甩掉旧缓存）。排查线上白屏先看这条。
 
 ## 目录
 

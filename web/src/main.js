@@ -242,7 +242,14 @@ function sfx(type) {
 
 // ================= Three.js 场景 =================
 const canvas = $('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+} catch (err) {
+  // 拿不到 WebGL2 上下文时别让整页静默白屏：给出可读原因（部分机型的省电模式/隐私设置会禁掉）
+  window.__bootErr?.('这台设备拿不到 WebGL2 上下文：' + (err && err.message ? err.message : err));
+  throw err;
+}
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.30;

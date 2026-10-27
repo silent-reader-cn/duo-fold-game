@@ -949,3 +949,28 @@ body::after {
 @media (max-height: 700px) {
   .swipe-hint { bottom: calc(232px + env(safe-area-inset-bottom)); }
 }
+
+/* ================= 启动失败诊断条 ================= */
+/* 模块加载失败时页面只有静态外壳，必须把真实错误直接摆在玩家眼前，
+   否则就是"界面在、模型没了"这种最难猜的故障 */
+#bootErr {
+  position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom));
+  z-index: 99;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(58, 12, 16, .94);
+  border: 1px solid rgba(255, 82, 82, .55);
+  color: #ffd9d9;
+  font: 600 11px/1.55 ui-monospace, Menlo, Consolas, monospace;
+  letter-spacing: .02em; word-break: break-all;
+  box-shadow: 0 12px 34px -14px rgba(0, 0, 0, .95);
+  pointer-events: auto;
+  user-select: text; -webkit-user-select: text;
+}
+#bootErr[hidden] { display: none; }
+#bootErr button {
+  margin-left: 9px; padding: 2px 11px; vertical-align: baseline;
+  font-family: inherit; font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  color: #ffe3e3; background: rgba(255, 82, 82, .2);
+  border: 1px solid rgba(255, 82, 82, .55); border-radius: 6px; cursor: pointer;
+}
+#bootErr button:active { background: rgba(255, 82, 82, .34); }
