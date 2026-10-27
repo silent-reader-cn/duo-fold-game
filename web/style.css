@@ -266,30 +266,125 @@ html, body {
 }
 
 
-/* 稀有度 / AppleCare+ 横幅：贴在模型下方，不遮正面 */
-.rarity-banner {
-  position: fixed; left: 50%; bottom: calc(320px + env(safe-area-inset-bottom));
-  transform: translate(-50%, 14px) scale(.94);
-  z-index: 30; pointer-events: none;
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 10px 26px 12px;
-  border-radius: 15px;
-  background: linear-gradient(160deg, rgba(10,12,18,.90), rgba(6,8,12,.94));
-  border: 1px solid var(--rc);
-  box-shadow: 0 0 34px -6px var(--rc), inset 0 1px 0 rgba(255,255,255,.12);
+
+/* ================= 稀有度条带（斜向贯穿） ================= */
+.rarity-band {
+  position: fixed;
+  left: -32vw; right: -32vw; top: 40%;
+  height: 92px;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 32; pointer-events: none;
   opacity: 0;
-  transition: opacity .38s cubic-bezier(.2,1,.4,1), transform .38s cubic-bezier(.2,1.3,.4,1);
+  transform: rotate(-7deg) translateX(-125%);
+  background: linear-gradient(90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--rc) 9%, transparent) 14%,
+    color-mix(in srgb, var(--rc) 26%, transparent) 50%,
+    color-mix(in srgb, var(--rc) 9%, transparent) 86%,
+    transparent 100%);
+  border-top: 1.5px solid color-mix(in srgb, var(--rc) 72%, transparent);
+  border-bottom: 1.5px solid color-mix(in srgb, var(--rc) 72%, transparent);
+  box-shadow: 0 0 80px -16px var(--rc), inset 0 0 52px -24px var(--rc);
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
 }
-.rarity-banner.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
-.rarity-banner .rb-label {
-  font-size: 9.5px; letter-spacing: .26em; color: var(--rc);
-  text-shadow: 0 0 10px var(--rc);
+
+/* --- 进场：从左侧斜扫入，略带回弹 --- */
+.rarity-band.in { animation: bandIn .54s cubic-bezier(.14,.9,.24,1) forwards; }
+@keyframes bandIn {
+  0%   { opacity: 0; transform: rotate(-7deg) translateX(-125%) scaleY(.84); }
+  55%  { opacity: 1; opacity: 1; }
+  100% { opacity: 1; transform: rotate(-7deg) translateX(0) scaleY(1); }
 }
-.rarity-banner .rb-name {
-  font-size: 17px; font-weight: 700; color: #f2f5fa; letter-spacing: .06em;
+
+/* --- 退场：向右加速扫出并上浮淡出 --- */
+.rarity-band.out { animation: bandOut .66s cubic-bezier(.62,0,.86,.18) forwards; }
+@keyframes bandOut {
+  0%   { opacity: 1; transform: rotate(-7deg) translateX(0) scaleY(1); }
+  100% { opacity: 0; transform: rotate(-7deg) translateX(130%) translateY(-10px) scaleY(.9); }
 }
-.ac-banner { animation: acPulse 1.1s ease-in-out infinite; }
-@keyframes acPulse {
-  0%, 100% { box-shadow: 0 0 30px -8px var(--rc), inset 0 1px 0 rgba(255,255,255,.12); }
-  50% { box-shadow: 0 0 52px -2px var(--rc), inset 0 1px 0 rgba(255,255,255,.2); }
+
+/* --- 文字 --- */
+.rarity-band .rb-inner {
+  display: flex; align-items: baseline; gap: 16px;
+  opacity: 0; transform: scale(.9);
+}
+.rarity-band.in .rb-inner {
+  animation: bandText .52s cubic-bezier(.2,1.4,.4,1) .09s forwards;
+}
+@keyframes bandText {
+  from { opacity: 0; transform: scale(.82); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.rb-label {
+  font-size: 11px; letter-spacing: .34em; color: #ffffff;
+  padding: 3px 9px 3px 11px;
+  border: 1px solid color-mix(in srgb, var(--rc) 80%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--rc) 26%, rgba(6,8,12,.72));
+  text-shadow: 0 0 10px var(--rc), 0 1px 3px rgba(0,0,0,.9);
+}
+.rb-name {
+  font-size: 26px; font-weight: 800; color: #fff; letter-spacing: .1em;
+  text-shadow: 0 0 24px var(--rc), 0 2px 12px rgba(0,0,0,.7);
+}
+
+/* --- 扫光 --- */
+.rb-sheen {
+  position: absolute; inset: 0; overflow: hidden;
+  background: linear-gradient(100deg, transparent 38%, rgba(255,255,255,.5) 50%, transparent 62%);
+  transform: translateX(-100%); opacity: 0;
+}
+.rarity-band.in .rb-sheen { animation: sheen 1s ease-out .12s 1 both; }
+@keyframes sheen {
+  0%   { transform: translateX(-100%); opacity: 0; }
+  28%  { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+/* --- 回声光带（史诗 1 条 / 传说 2 条） --- */
+.rb-echo {
+  position: absolute; left: -8%; right: -8%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--rc), transparent);
+  box-shadow: 0 0 14px var(--rc);
+  opacity: 0;
+}
+.rb-echo-1 { top: -15px; }
+.rb-echo-2 { bottom: -19px; }
+.rarity-band.in .rb-echo { animation: echoIn .62s ease-out .18s forwards; }
+@keyframes echoIn {
+  from { opacity: 0; transform: scaleX(.25); }
+  to   { opacity: .85; transform: scaleX(1); }
+}
+
+/* --- 传说：星点飞散 --- */
+.rb-stars {
+  position: absolute; inset: -46px 0;
+  background-image:
+    radial-gradient(circle, var(--rc) 1.3px, transparent 1.5px),
+    radial-gradient(circle, #ffffff 1px, transparent 1.2px);
+  background-size: 47px 47px, 84px 84px;
+  opacity: 0;
+}
+.rarity-band.in .rb-stars { animation: stars .95s ease-out .1s forwards; }
+@keyframes stars {
+  0%   { opacity: 0; transform: scale(.94); }
+  38%  { opacity: .85; }
+  100% { opacity: 0; transform: scale(1.08); }
+}
+
+/* --- 传说：逐字上浮 --- */
+.rb-ch { display: inline-block; opacity: 0; transform: translateY(11px); }
+.rarity-band.in .rb-ch {
+  animation: chIn .44s cubic-bezier(.2,1.5,.4,1) forwards;
+  animation-delay: calc(.2s + var(--i) * .055s);
+}
+@keyframes chIn { to { opacity: 1; transform: translateY(0); } }
+
+/* --- 档位差异：越稀有越厚重 --- */
+.rarity-band.tier-epic { height: 102px; top: 39%; }
+.rarity-band.tier-legendary {
+  height: 118px; top: 38%;
+  box-shadow: 0 0 110px -18px var(--rc), inset 0 0 64px -26px var(--rc);
+  border-top-width: 2px; border-bottom-width: 2px;
 }

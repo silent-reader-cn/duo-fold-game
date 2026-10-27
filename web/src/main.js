@@ -416,38 +416,64 @@ function celebrateTrait(t) {
   }
 }
 
-function showAcBanner() {
-  const el = document.createElement('div');
-  el.className = 'rarity-banner ac-banner';
-  el.style.setProperty('--rc', '#00ff88');
-  el.innerHTML = '<span class="rb-label">APPLE CARE+</span><span class="rb-name">自动生效 · 已换机</span>';
-  document.body.appendChild(el);
-  requestAnimationFrame(() => el.classList.add('show'));
-  setTimeout(() => {
-    el.classList.remove('show');
-    setTimeout(() => el.remove(), 480);
-  }, 2400);
-}
 
-// 稀有度横幅：从模型背面弹出的短促光带，不遮挡模型正面
+// 稀有度横幅：斜向贯穿整屏的条带。分三档，越稀有层次越多。
+// rare = 单带快扫 / epic = 双层 + 扫光 + 文字弹入 / legendary = 三层 + 双扫光 + 星点 + 逐字上浮
 function showRarityBanner(t, rarity) {
   const RAR = {
-    rare: { label: '稀有词条', color: '#4aa3ff' },
-    epic: { label: '史诗词条', color: '#b76bff' },
-    legendary: { label: '传说词条', color: '#ffb020' },
+    rare: { label: '稀有词条', color: '#4aa3ff', hold: 1400 },
+    epic: { label: '史诗词条', color: '#b76bff', hold: 1750 },
+    legendary: { label: '传说词条', color: '#ffb020', hold: 2300 },
   };
   const cfg = RAR[rarity];
   if (!cfg) return;
+  playBand(cfg.label, t.name, cfg.color, cfg.hold, rarity);
+}
+
+function showAcBanner() {
+  playBand('APPLE CARE+', '自动生效 · 已换机', '#00ff88', 2350, 'epic');
+}
+
+function playBand(label, name, color, hold, tier) {
   const el = document.createElement('div');
-  el.className = 'rarity-banner';
-  el.style.setProperty('--rc', cfg.color);
-  el.innerHTML = `<span class="rb-label">${cfg.label}</span><span class="rb-name">${t.name}</span>`;
+  el.className = `rarity-band tier-${tier || 'rare'}`;
+  el.style.setProperty('--rc', color);
+
+  let extra = '';
+  if (tier === 'legendary') {
+    // 三条错落的光带 + 星点
+    extra =
+      '<div class="rb-echo rb-echo-1"></div>' +
+      '<div class="rb-echo rb-echo-2"></div>' +
+      '<div class="rb-sheen"></div>' +
+      '<div class="rb-sheen rb-sheen-2"></div>' +
+      '<div class="rb-stars"></div>';
+  } else if (tier === 'epic') {
+    extra = '<div class="rb-echo rb-echo-1"></div><div class="rb-sheen"></div>';
+  }
+
+  // 传说：名字逐字上浮
+  const nameHtml =
+    tier === 'legendary'
+      ? [...name].map((ch, i) =>
+          `<span class="rb-ch" style="--i:${i}">${ch}</span>`).join('')
+      : name;
+
+  el.innerHTML =
+    extra +
+    '<div class="rb-inner">' +
+    `<span class="rb-label">${label}</span>` +
+    `<span class="rb-name">${nameHtml}</span>` +
+    '</div>';
+
   document.body.appendChild(el);
-  requestAnimationFrame(() => el.classList.add('show'));
+  requestAnimationFrame(() => el.classList.add('in'));
+
   setTimeout(() => {
-    el.classList.remove('show');
-    setTimeout(() => el.remove(), 480);
-  }, rarity === 'legendary' ? 2200 : 1500);
+    el.classList.remove('in');
+    el.classList.add('out');
+    setTimeout(() => el.remove(), 760);
+  }, hold);
 }
 
 function updateUI() {
@@ -812,7 +838,7 @@ function tick(now) {
   requestAnimationFrame(tick);
 }
 
-window.__duo = { scene, camera, phone, renderer, THREE, game, envTex };
+window.__duo = { scene, camera, phone, renderer, THREE, game, envTex, band: playBand };
 
 // 壁纸（加载完成后重绘一次屏幕）
 const wp = new Image();
