@@ -199,7 +199,7 @@ export function makeCard(st) {
   ctx.fillText(`STAGE ${String(st.stage).padStart(2, '0')} / ${String(st.stageMax).padStart(2, '0')}`, W / 2, barY + 46);
 
   // ---------- 折叠次数 ----------
-  const foldY = barY + 190;
+  const foldY = barY + 236;   // 与上方 STAGE 行拉开，避免大字顶部和它贴住
   ctx.save();
   ctx.shadowColor = accent + 'cc';
   ctx.shadowBlur = 56;
@@ -213,7 +213,7 @@ export function makeCard(st) {
   ctx.fillText('次折叠', W / 2, foldY + 52);
 
   // ---------- 数据格 ----------
-  const statsY = foldY + 116;
+  const statsY = foldY + 120;
   const items = [
     { k: '吹风机', v: st.fan > 0 ? `×${st.fan}` : '未用' },
     { k: '沙子', v: st.sand > 0 ? `×${st.sand}` : '未用' },
