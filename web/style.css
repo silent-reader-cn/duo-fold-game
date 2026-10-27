@@ -355,6 +355,21 @@ html, body {
   50%      { box-shadow: inset 0 1px 0 rgba(255, 240, 195, .24), 0 0 30px -6px rgba(255, 192, 64, 1); }
 }
 
+/* 高级词条卡的角落花纹：传说用双弧角饰，史诗用叠套菱形（mask 上色，跟着 --rc 走） */
+.book-trait .bt-orn {
+  position: absolute; right: 7px; bottom: 7px; z-index: 1;
+  width: 24px; height: 24px; pointer-events: none;
+  background: var(--rc); opacity: .42;
+  -webkit-mask: var(--bt-orn) no-repeat center / contain;
+  mask: var(--bt-orn) no-repeat center / contain;
+}
+.book-trait.r-legendary .bt-orn {
+  --bt-orn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round'%3E%3Cpath d='M2 30A28 28 0 0 1 30 2'/%3E%3Cpath d='M2 19A17 17 0 0 1 19 2'/%3E%3Ccircle cx='28.5' cy='28.5' r='1.8' fill='%23000' stroke='none'/%3E%3C/svg%3E");
+}
+.book-trait.r-epic .bt-orn {
+  --bt-orn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23000' stroke-width='1.6'%3E%3Cpath d='M16 2 30 16 16 30 2 16Z'/%3E%3Cpath d='M16 9 23 16 16 23 9 16Z'/%3E%3C/svg%3E");
+}
+
 /* 未解锁：整体压暗，但边框仍留一缕稀有度色，图鉴才有收集欲 */
 .book-trait.locked { opacity: .52; }
 .book-trait.locked .bt-name { color: #9aa2af; text-shadow: none; }
@@ -1007,7 +1022,15 @@ body::after {
   50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 4px 18px -8px rgba(90,150,220,.5); }
 }
 
-/* 成就卡：浮起 + 外发光脉冲 */
+/* 成就卡：浮起 + 外发光脉冲
+   发光颜色跟着卡面最高稀有度走（main.js 写 data-rarity），与成就页词条卡同一套色 */
+.sheet img { --card-glow: rgba(40, 110, 180, .35); }
+.sheet img[data-rarity="common"]    { --card-glow: rgba(170, 180, 196, .24); }
+.sheet img[data-rarity="rare"]      { --card-glow: rgba(74, 163, 255, .42); }
+.sheet img[data-rarity="epic"]      { --card-glow: rgba(183, 107, 255, .48); }
+.sheet img[data-rarity="legendary"] { --card-glow: rgba(255, 176, 32, .52); }
+.sheet img[data-rarity="broken"]    { --card-glow: rgba(255, 77, 94, .46); }
+.sheet img[data-rarity="clean"]     { --card-glow: rgba(0, 255, 136, .32); }
 .sheet img {
   animation: cardFloat 5.6s ease-in-out infinite, cardGlow 5.6s ease-in-out infinite;
 }
@@ -1017,7 +1040,7 @@ body::after {
 }
 @keyframes cardGlow {
   0%, 100% { box-shadow: 0 26px 70px -18px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.5); }
-  50%      { box-shadow: 0 34px 88px -14px rgba(40,110,180,.35), 0 0 0 1px rgba(255,255,255,.07); }
+  50%      { box-shadow: 0 34px 88px -14px var(--card-glow), 0 0 0 1px rgba(255,255,255,.07); }
 }
 
 /* 成就进度环：缓慢流光（画在 svg 元素上，不会被 SVG 视口裁掉） */

@@ -8,6 +8,155 @@ const LATIN = '"Helvetica Neue",Helvetica,"Segoe UI",Arial,system-ui,sans-serif'
 const CJK = getLang() === 'en' ? LATIN : SC;
 const MONO = '"SF Mono","Consolas","Roboto Mono",monospace';
 
+/** 正多角星（几何花）：外径 / 内径交替连点 */
+function starPoly(ctx, cx, cy, rOut, rIn, points, stroke, lw, fill) {
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const rad = i % 2 ? rIn : rOut;
+    const a = (Math.PI / points) * i - Math.PI / 2;
+    const x = cx + Math.cos(a) * rad;
+    const y = cy + Math.sin(a) * rad;
+    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+}
+
+/** 菱形（古典花带上最基础的那个形） */
+function diamond(ctx, cx, cy, r, stroke, lw, fill) {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy);
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke(); }
+}
+
+/** 横向花带：双细线 + 中间菱形串，两端可加八角星徽（传说的分隔线用它替代一根直线） */
+function flourishBand(ctx, x0, y, w, skin, withMedallion) {
+  ctx.save();
+  ctx.strokeStyle = rgba(skin.fill, 0.38);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x0 + 30, y - 3); ctx.lineTo(x0 + w - 30, y - 3);
+  ctx.moveTo(x0 + 30, y + 3); ctx.lineTo(x0 + w - 30, y + 3);
+  ctx.stroke();
+  for (let x = x0 + 46; x <= x0 + w - 46; x += 30) diamond(ctx, x, y, 5.5, null, 0, rgba(skin.fill, 0.55));
+  if (withMedallion) {
+    starPoly(ctx, x0, y, 14, 6.5, 8, skin.ink, 1.5, rgba(skin.fill, 0.16));
+    starPoly(ctx, x0 + w, y, 14, 6.5, 8, skin.ink, 1.5, rgba(skin.fill, 0.16));
+  }
+  ctx.restore();
+}
+
+/** 纵向边带：和横向花带同一族语言——双细线 + 连珠菱形，古典且小尺寸下也看得懂 */
+function marginPattern(ctx, x, y0, y1, skin, kind) {
+  ctx.save();
+  const classic = kind === 'classic';
+  const step = 62;
+  // 双细线（传说）/ 单细线（史诗）
+  ctx.strokeStyle = rgba(skin.fill, classic ? 0.28 : 0.22);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x - 7, y0); ctx.lineTo(x - 7, y1);
+  ctx.moveTo(x + 7, y0); ctx.lineTo(x + 7, y1);
+  if (!classic) ctx.moveTo(x + 7, y0), ctx.lineTo(x - 7, y0), ctx.lineTo(x - 7, y1), ctx.lineTo(x + 7, y1);
+  ctx.stroke();
+
+  let alt = 0;
+  for (let y = y0 + step / 2; y < y1; y += step, alt++) {
+    if (classic) {
+      // 菱形与八角星交替成珠链
+      if (alt % 2 === 0) {
+        diamond(ctx, x, y, 7.5, null, 0, rgba(skin.fill, 0.45));
+        diamond(ctx, x, y, 12, rgba(skin.fill, 0.26), 1, null);
+      } else {
+        starPoly(ctx, x, y, 7, 3, 8, rgba(skin.fill, 0.34), 1, null);
+      }
+    } else {
+      diamond(ctx, x, y, 5, rgba(skin.fill, 0.3), 1.1, null);
+    }
+  }
+  ctx.restore();
+}
+
+/** 满版底纹：传说八芒星格，史诗菱格网，都用极低透明度，只做质感不抢字 */
+function patternField(ctx, W, H, skin, kind) {
+  ctx.save();
+  if (kind === 'classic') {
+    const step = 116;
+    for (let gy = step / 2, row = 0; gy < H; gy += step, row++) {
+      for (let gx = (row % 2 ? step : step / 2); gx < W; gx += step) {
+        starPoly(ctx, gx, gy, 17, 7, 8, rgba(skin.fill, 0.075), 1, null);
+        diamond(ctx, gx, gy, 3.5, null, 0, rgba(skin.fill, 0.07));
+      }
+    }
+  } else if (kind === 'geo') {
+    const step = 88;
+    ctx.strokeStyle = rgba(skin.fill, 0.085);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = -H; i < W + H; i += step) {
+      ctx.moveTo(i, 0); ctx.lineTo(i + H, H);
+      ctx.moveTo(i, 0); ctx.lineTo(i - H, H);
+    }
+    ctx.stroke();
+    for (let gy = step; gy < H; gy += step) {
+      for (let gx = step; gx < W; gx += step) diamond(ctx, gx, gy, 4.5, null, 0, rgba(skin.fill, 0.09));
+    }
+  }
+  ctx.restore();
+}
+
+/** 底部徽记：正中的八角花，替代空着的那块黑 */
+function medallion(ctx, cx, cy, skin, r) {
+  starPoly(ctx, cx, cy, r, r * 0.45, 8, skin.ink, 1.6, rgba(skin.fill, 0.10));
+  starPoly(ctx, cx, cy, r * 0.46, r * 0.22, 4, rgba(skin.fill, 0.85), 1.3, null);
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.13, 0, Math.PI * 2);
+  ctx.fillStyle = skin.ink; ctx.fill();
+}
+
+/** 先按原字号排，超宽就缩字号，缩到下限还超就按词/字折行（英文长句原本会直接溢出画布） */
+function fitBlock(ctx, text, maxW, fontFn, start, min, maxLines) {
+  for (let s = start; s >= min; s--) {
+    ctx.font = fontFn(s);
+    if (ctx.measureText(text).width <= maxW) return { size: s, lines: [text] };
+  }
+  ctx.font = fontFn(min);
+  const tokens = /\s/.test(text) ? text.split(/(\s+)/).filter(Boolean) : [...text];
+  const lines = [];
+  let cur = '';
+  for (let i = 0; i < tokens.length; i++) {
+    const tk = tokens[i];
+    const next = cur + tk;
+    if (cur && ctx.measureText(next).width > maxW) {
+      lines.push(cur.trim());
+      if (lines.length === maxLines - 1) { cur = tokens.slice(i).join('').trim(); break; }
+      cur = tk.trim();
+    } else {
+      cur = next;
+    }
+  }
+  if (cur) lines.push(cur.trim());
+  return { size: min, lines: lines.slice(0, maxLines) };
+}
+
+/** 词条前的标记也用形状分档：普通圆点 / 稀有带环圆点 / 史诗菱形 / 传说带芯八角星 */
+function rarMark(ctx, cx, cy, rarity, skin) {
+  if (rarity === 'legendary') {
+    starPoly(ctx, cx, cy, 8, 3.4, 8, skin.ink, 1.2, rgba(skin.fill, 0.35));
+  } else if (rarity === 'epic') {
+    diamond(ctx, cx, cy, 6.4, skin.ink, 1.4, rgba(skin.fill, 0.3));
+  } else {
+    ctx.beginPath(); ctx.arc(cx, cy, rarity === 'rare' ? 5 : 4, 0, Math.PI * 2);
+    ctx.fillStyle = skin.ink; ctx.fill();
+    if (rarity === 'rare') {
+      ctx.beginPath(); ctx.arc(cx, cy, 7.6, 0, Math.PI * 2);
+      ctx.strokeStyle = rgba(skin.fill, 0.6); ctx.lineWidth = 1; ctx.stroke();
+    }
+  }
+}
+
 function rr(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -17,6 +166,20 @@ function rr(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
 }
+
+// 稀有度皮肤：canvas 读不到 CSS 变量，这里的颜色与 style.css 的 .book-trait.r-* 一一对应
+// ink=文字/圆点主色（提亮版） l1..l2=描边渐变 fill=底色+辉光 lw=描边粗细 glow=辉光半径
+const RSKIN = {
+  common:    { ink: '#cbd2dc', l1: '#b9c2d0', l2: '#8b93a4', fill: [203, 210, 220], lw: 1.6, glow: 0 },
+  rare:      { ink: '#7cc8ff', l1: '#8fd8ff', l2: '#3a8aff', fill: [74, 163, 255],  lw: 2.0, glow: 15 },
+  epic:      { ink: '#cf9bff', l1: '#d79dff', l2: '#ff6ed7', fill: [183, 107, 255], lw: 2.4, glow: 24 },
+  legendary: { ink: '#ffd15c', l1: '#ffe89a', l2: '#ff9628', fill: [255, 176, 32],  lw: 3.0, glow: 34 },
+};
+// 碎裂 / 无词条时也得有自己的一套，别让外框掉成灰白
+const BROKEN_SKIN = { ink: '#ff9aa4', l1: '#ffc2c8', l2: '#e03b4a', fill: [255, 77, 94], lw: 2.4, glow: 22 };
+const CLEAN_SKIN  = { ink: '#7dffbd', l1: '#a6ffd4', l2: '#00c46a', fill: [0, 255, 136], lw: 2.0, glow: 16 };
+const RAR_DESC = { legendary: 0, epic: 1, rare: 2, common: 3 };
+const rgba = ([r, g, b], a) => `rgba(${r},${g},${b},${a})`;
 
 /** 综合评级：品阶 + 折叠数 + 稀有词条权重 */
 function grade(st) {
@@ -40,7 +203,7 @@ function grade(st) {
  */
 export function makeCard(st) {
   const W = 1080;
-  const H = 1960;   // 检测报告句式更长，需要更多纵向空间
+  const H = 2020;   // 表格行与词条胶囊都加高了一档，纵向再放 60
   const SS = 2;
   const c = document.createElement('canvas');
   c.width = W * SS;
@@ -94,15 +257,43 @@ export function makeCard(st) {
 
   const m = 68;
 
-  // 外框（双线）
-  ctx.strokeStyle = 'rgba(255,255,255,.10)';
-  ctx.lineWidth = 2;
+  // 外框（双线）：描边走「最高稀有度」的渐变，越稀有越粗越亮，还带一圈外发光
+  const frameSkin = st.broken ? BROKEN_SKIN : topRarity ? RSKIN[topRarity] : CLEAN_SKIN;
+  // 花纹分档：传说=古典（回纹/花带/徽记），史诗=几何菱格，稀有=双线，普通=素面
+  const ORN_BY_RARITY = { legendary: 'classic', epic: 'geo', rare: 'line', common: 'none' };
+  const orn = topRarity ? ORN_BY_RARITY[topRarity] : 'none';
+
+  if (orn === 'classic' || orn === 'geo') patternField(ctx, W, H, frameSkin, orn);
+  const fg = ctx.createLinearGradient(24, 24, W - 24, H - 24);
+  fg.addColorStop(0, frameSkin.l1);
+  fg.addColorStop(0.34, 'rgba(255,255,255,.30)');
+  fg.addColorStop(0.64, frameSkin.l2);
+  fg.addColorStop(1, frameSkin.l1);
+  ctx.save();
+  if (frameSkin.glow) {
+    ctx.shadowColor = rgba(frameSkin.fill, 0.9);
+    ctx.shadowBlur = frameSkin.glow;
+  }
+  ctx.strokeStyle = fg;
+  ctx.lineWidth = frameSkin.lw + 0.6;
   rr(ctx, 24, 24, W - 48, H - 48, 26);
   ctx.stroke();
-  ctx.strokeStyle = accent + '30';
+  ctx.restore();
+  ctx.strokeStyle = rgba(frameSkin.fill, 0.20);
   ctx.lineWidth = 1;
   rr(ctx, 32, 32, W - 64, H - 64, 22);
   ctx.stroke();
+  // 高稀有度再加一道内双线 + 两侧边带，古典器物那种「复框」味道
+  if (orn === 'classic' || orn === 'geo') {
+    ctx.strokeStyle = rgba(frameSkin.fill, 0.13);
+    ctx.lineWidth = 1;
+    rr(ctx, 44, 44, W - 88, H - 88, 18);
+    ctx.stroke();
+  }
+  if (orn !== 'none') {
+    marginPattern(ctx, 50, 250, H - 250, frameSkin, orn === 'classic' ? 'classic' : 'geo');
+    marginPattern(ctx, W - 50, 250, H - 250, frameSkin, orn === 'classic' ? 'classic' : 'geo');
+  }
 
   // ================= 报告页眉 =================
   ctx.textAlign = 'left';
@@ -127,9 +318,17 @@ export function makeCard(st) {
     W - m, 138
   );
 
-  // 分隔线
-  ctx.fillStyle = accent + '66';
-  ctx.fillRect(m, 166, W - m * 2, 1.5);
+  // 分隔线：传说/史诗换成花带，稀有双线，普通单线
+  if (orn === 'classic') flourishBand(ctx, m, 171, W - m * 2, frameSkin, true);
+  else if (orn === 'geo') flourishBand(ctx, m, 171, W - m * 2, frameSkin, false);
+  else if (orn === 'line') {
+    ctx.fillStyle = accent + '55';
+    ctx.fillRect(m, 168, W - m * 2, 1.2);
+    ctx.fillRect(m, 173, W - m * 2, 0.8);
+  } else {
+    ctx.fillStyle = accent + '66';
+    ctx.fillRect(m, 170, W - m * 2, 1.5);
+  }
 
   // ================= 评级徽章 =================
   const badgeX = W - m - 92;
@@ -308,77 +507,121 @@ export function makeCard(st) {
     },
   ];
 
-  const rowH = 46;
-  ctx.font = `400 21px ${CJK}`;
+  const rowH = 52;   // 46 → 52：手机上看导出图时，行距太密根本读不进去
+  ctx.font = `400 22px ${CJK}`;
   rows.forEach((row, i) => {
     const y = tY + i * rowH;
     const isHead = !!row.head;
     if (isHead) {
-      ctx.fillStyle = 'rgba(255,255,255,.05)';
-      ctx.fillRect(tx0, y - 30, tw, rowH);
+      ctx.fillStyle = 'rgba(255,255,255,.055)';
+      ctx.fillRect(tx0, y - 34, tw, rowH);
     } else if (i % 2 === 0) {
-      ctx.fillStyle = 'rgba(255,255,255,.018)';
-      ctx.fillRect(tx0, y - 30, tw, rowH);
+      ctx.fillStyle = 'rgba(255,255,255,.02)';
+      ctx.fillRect(tx0, y - 34, tw, rowH);
     }
 
     ctx.textAlign = 'left';
-    ctx.fillStyle = isHead ? 'rgba(150,158,172,.85)' : 'rgba(196,203,214,.92)';
-    ctx.font = `${isHead ? 600 : 400} 20px ${CJK}`;
+    ctx.fillStyle = isHead ? 'rgba(163,171,184,.92)' : 'rgba(214,220,230,.96)';
+    ctx.font = `${isHead ? 600 : 400} 22px ${CJK}`;
     ctx.fillText(row.a, tx0 + 18, y);
 
     ctx.textAlign = 'center';
-    ctx.fillStyle = isHead ? 'rgba(150,158,172,.85)' : 'rgba(170,178,192,.85)';
+    ctx.fillStyle = isHead ? 'rgba(163,171,184,.92)' : 'rgba(188,196,210,.94)';
     ctx.fillText(row.b, tx0 + tw * 0.62, y);
 
     // 判定列：异常红 / 合格绿 / 无事可判（保修那条）灰
     const verdict = isHead ? row.c : row.dash ? '—' : row.bad ? t('card.val.fail') : t('card.val.pass');
     ctx.textAlign = 'right';
     ctx.fillStyle = isHead || row.dash
-      ? 'rgba(150,158,172,.85)'
-      : row.bad ? '#ff5c6c' : 'rgba(120,190,150,.9)';
-    ctx.font = `${isHead ? 600 : 700} 20px ${CJK}`;
+      ? 'rgba(163,171,184,.92)'
+      : row.bad ? '#ff6b7a' : 'rgba(126,232,178,.95)';
+    ctx.font = `${isHead ? 600 : 700} 22px ${CJK}`;
     ctx.fillText(verdict, tx0 + tw - 18, y);
   });
 
   // ================= 词条 =================
   let chipY = tY + rows.length * rowH + 34;
   if (traits.length) {
+    // 高稀有度排前面：一眼先看到最珍贵的那几条
+    const chips = [...traits].sort((a, b) => RAR_DESC[a.rarity] - RAR_DESC[b.rarity]);
+
     ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(120,128,142,.75)';
-    ctx.font = `400 19px ${CJK}`;
+    ctx.fillStyle = 'rgba(163,171,184,.92)';
+    ctx.font = `600 21px ${CJK}`;
     ctx.fillText(t('card.defects', { n: traits.length }), m, chipY);
 
-    ctx.textAlign = 'center';
+    // 右上：按稀有度统计，各自颜色，省得人去数
+    ctx.textAlign = 'right';
+    let rx = W - m;
+    for (const rk of ['legendary', 'epic', 'rare', 'common']) {
+      const n = traits.filter((x) => x.rarity === rk).length;
+      if (!n) continue;
+      const sk = RSKIN[rk];
+      const label = `${RARITY[rk].label} ×${n}`;
+      ctx.font = `600 19px ${CJK}`;
+      ctx.fillStyle = sk.ink;
+      ctx.fillText(label, rx, chipY - 2);
+      rx -= ctx.measureText(label).width + 24;
+    }
+
+    const CH = 46;          // 胶囊高：38 → 46，字号跟着能上到 23
     let cx = m;
-    let cy = chipY + 18;
-    for (const tr of traits) {
-      const rar = RARITY[tr.rarity] || RARITY.common;
-      ctx.font = `600 21px ${CJK}`;
-      const tw2 = ctx.measureText(tr.name).width + 34;
-      if (cx + tw2 > W - m) { cx = m; cy += 50; }
-      rr(ctx, cx, cy, tw2, 38, 19);
-      ctx.fillStyle = rar.color + '20';
+    let cy = chipY + 22;
+    for (const tr of chips) {
+      const sk = RSKIN[tr.rarity] || RSKIN.common;
+      ctx.font = `600 23px ${CJK}`;
+      const tw2 = ctx.measureText(tr.name).width + 56;   // 左形状标记 + 两侧留白
+      if (cx + tw2 > W - m) { cx = m; cy += CH + 12; }
+
+      const g = ctx.createLinearGradient(cx, cy, cx + tw2, cy + CH);
+      g.addColorStop(0, sk.l1);
+      g.addColorStop(1, sk.l2);
+      rr(ctx, cx, cy, tw2, CH, 13);
+      ctx.fillStyle = rgba(sk.fill, 0.17);
       ctx.fill();
-      ctx.strokeStyle = rar.color + '80';
-      ctx.lineWidth = 1.4;
-      ctx.stroke();
-      ctx.fillStyle = rar.color;
-      ctx.fillText(tr.name, cx + tw2 / 2, cy + 26);
+      // 越高档描边越粗，还带一层自发光
+      if (sk.glow) {
+        ctx.save();
+        ctx.shadowColor = rgba(sk.fill, 0.85);
+        ctx.shadowBlur = sk.glow;
+        ctx.strokeStyle = g;
+        ctx.lineWidth = sk.lw;
+        rr(ctx, cx, cy, tw2, CH, 13);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.strokeStyle = g;
+        ctx.lineWidth = sk.lw;
+        rr(ctx, cx, cy, tw2, CH, 13);
+        ctx.stroke();
+      }
+
+      rarMark(ctx, cx + 22, cy + CH / 2, tr.rarity, sk);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = sk.ink;
+      ctx.fillText(tr.name, cx + 38, cy + CH / 2 + 1);
+      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'center';
       cx += tw2 + 12;
     }
-    chipY = cy + 76;
+    chipY = cy + CH + 36;
   }
 
   // ================= 结论 =================
+  // 结论靠左，右侧整段留给印章：长短句都不会被章压住
   const quoteY = Math.min(Math.max(chipY + 30, H - 300), H - 240);
-  ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(120,128,142,.7)';
-  ctx.font = `400 19px ${MONO}`;
-  ctx.fillText('INSPECTION CONCLUSION', W / 2, quoteY - 32);
+  const quoteMaxW = W - m - 320;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(150,158,172,.8)';
+  ctx.font = `400 20px ${MONO}`;
+  ctx.fillText('INSPECTION CONCLUSION', m, quoteY - 32);
 
-  ctx.fillStyle = st.broken ? '#ff5c6c' : 'rgba(200,208,220,.95)';
-  ctx.font = `400 27px ${CJK}`;
-  ctx.fillText(st.quote, W / 2, quoteY);
+  const qb = fitBlock(ctx, st.quote, quoteMaxW, (s) => `400 ${s}px ${CJK}`, 29, 23, 2);
+  ctx.fillStyle = st.broken ? '#ff6b7a' : 'rgba(214,220,230,.97)';
+  ctx.font = `400 ${qb.size}px ${CJK}`;
+  qb.lines.forEach((ln, i) => ctx.fillText(ln, m, quoteY + i * (qb.size + 12)));
+  ctx.textAlign = 'center';
 
   // ================= 印章 =================
   const sx0 = W - 252;
@@ -431,10 +674,13 @@ export function makeCard(st) {
   ctx.restore();
 
   ctx.textAlign = 'right';
-  ctx.fillStyle = 'rgba(120,128,142,.6)';
-  ctx.font = `400 17px ${MONO}`;
+  ctx.fillStyle = 'rgba(140,148,163,.72)';
+  ctx.font = `400 18px ${MONO}`;
   ctx.fillText('DUO FOLD · INSPECTION DIVISION', W - m, bcY + 28);
-  ctx.fillText(st.serial, W - m, bcY + 52);
+  ctx.fillText(st.serial, W - m, bcY + 54);
+
+  // 底部正中一枚八角花徽记，高稀有度才画
+  if (orn !== 'none') medallion(ctx, W / 2, H - 166, frameSkin, orn === 'classic' ? 28 : 22);
 
   return c;
 }

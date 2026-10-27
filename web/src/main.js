@@ -1042,6 +1042,7 @@ function renderBook() {
             </div>
             <div class="bt-desc">${locked ? t('book.locked') : tr.desc}</div>
             ${locked ? '' : `<div class="bt-count">×${n}${fresh ? '<i class="bt-new">NEW</i>' : ''}</div>`}
+            ${!locked && (tr.rarity === 'legendary' || tr.rarity === 'epic') ? '<i class="bt-orn" aria-hidden="true"></i>' : ''}
           </div>`;
         })
         .join('');
@@ -1087,6 +1088,14 @@ function showCard() {
   });
   const url = c.toDataURL('image/png');
   $('cardImg').src = url;
+  // 弹窗里那张图的外发光跟着最高稀有度走：和成就页词条卡同一套色
+  const rorder = { common: 0, rare: 1, epic: 2, legendary: 3 };
+  let topR = '';
+  for (const id of game.traits) {
+    const r = TRAIT_MAP[id] && TRAIT_MAP[id].rarity;
+    if (r && (!topR || rorder[r] > rorder[topR])) topR = r;
+  }
+  $('cardImg').dataset.rarity = game.broken ? 'broken' : topR || 'clean';
   $('dlCard').href = url;
   // 文件名里别留空格和 · ：各系统都对它不友好
   const slug = game.stageName.replace(/[^\w\u4e00-\u9fff-]+/g, '-').replace(/^-+|-+$/g, '');
