@@ -348,8 +348,8 @@ html, body {
 .book-trait.r-legendary::after {
   content: ''; position: absolute; inset: -60%; z-index: 1; pointer-events: none;
   background: conic-gradient(from 0deg,
-    transparent 0deg, rgba(255, 214, 120, .20) 34deg, rgba(255, 246, 214, .38) 50deg,
-    rgba(255, 214, 120, .20) 66deg, transparent 92deg, transparent 360deg);
+    transparent 0deg, rgba(255, 214, 120, .07) 30deg, rgba(255, 246, 214, .20) 50deg,
+    rgba(255, 214, 120, .07) 70deg, transparent 96deg, transparent 360deg);
   animation: legSpin 7s linear infinite;
 }
 @keyframes legSpin { to { transform: rotate(1turn); } }
@@ -367,7 +367,7 @@ html, body {
   mask: var(--bt-orn) no-repeat center / contain;
 }
 .book-trait.r-legendary .bt-orn {
-  --bt-orn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round'%3E%3Cpath d='M2 30A28 28 0 0 1 30 2'/%3E%3Cpath d='M2 19A17 17 0 0 1 19 2'/%3E%3Ccircle cx='28.5' cy='28.5' r='1.8' fill='%23000' stroke='none'/%3E%3C/svg%3E");
+  --bt-orn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='square' stroke-linejoin='miter'%3E%3Cpath d='M31 13V31H13'/%3E%3Cpath d='M24 20V24H20'/%3E%3Cpath d='M27.5 24.6 30 27.1 27.5 29.6 25 27.1Z' fill='%23000' stroke='none'/%3E%3C/svg%3E");
 }
 .book-trait.r-epic .bt-orn {
   --bt-orn: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none' stroke='%23000' stroke-width='1.6'%3E%3Cpath d='M16 2 30 16 16 30 2 16Z'/%3E%3Cpath d='M16 9 23 16 16 23 9 16Z'/%3E%3C/svg%3E");
@@ -375,6 +375,9 @@ html, body {
 
 /* 未解锁：整体压暗，但边框仍留一缕稀有度色，图鉴才有收集欲 */
 .book-trait.locked { opacity: .52; }
+/* 未解锁就别演了：不呼吸、不扫光，只留一缕边色和底纹 */
+.book-trait.locked.r-legendary { animation: none; }
+.book-trait.locked.r-legendary::after { content: none; }
 .book-trait.locked .bt-name { color: #9aa2af; text-shadow: none; }
 .book-trait.locked .bt-rarity {
   color: #8f97a4;
@@ -438,23 +441,22 @@ html, body {
 /* 新手引导：两行手势胶囊
    上行演示「向右滑动」，下行演示「长按自动折叠」；长按充能时整块会随进度变亮 */
 .swipe-hint {
-  position: fixed; left: 50%; bottom: calc(258px + env(safe-area-inset-bottom));
-  transform: translateX(-50%) translateY(0);
+  /* 屏幕正中、左右贯通的一条半透明 HUD 带：上下发丝线 + 中间渐隐渐变，不挡机身 */
+  position: fixed; left: 0; right: 0; top: 50%;
+  transform: translateY(-50%);
   z-index: 16; pointer-events: none;
-  display: flex; flex-direction: column; gap: 9px;
-  padding: 12px 18px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(20,25,33,.88), rgba(8,10,14,.94));
-  border: 1px solid rgba(0,255,136,.16);
-  box-shadow:
-    0 12px 36px -16px rgba(0,0,0,.95),
-    0 0 34px -14px rgba(0,255,136,.5),
-    inset 0 1px 0 rgba(255,255,255,.08);
-  backdrop-filter: blur(12px) saturate(1.2);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2);
-  transition: opacity .5s ease, transform .5s cubic-bezier(.2,.9,.3,1), border-color .2s, box-shadow .2s;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 15px 22px;
+  background:
+    linear-gradient(90deg, transparent, rgba(0,255,136,.20) 16%, rgba(0,255,136,.20) 84%, transparent) top / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent, rgba(0,255,136,.20) 16%, rgba(0,255,136,.20) 84%, transparent) bottom / 100% 1px no-repeat,
+    linear-gradient(180deg, rgba(9,12,16,.02), rgba(9,12,16,.46) 16%, rgba(9,12,16,.46) 84%, rgba(9,12,16,.02));
+  box-shadow: 0 0 46px -20px rgba(0,255,136,.6);
+  backdrop-filter: blur(3px) saturate(1.05);
+  -webkit-backdrop-filter: blur(3px) saturate(1.05);
+  transition: opacity .5s ease, transform .5s cubic-bezier(.2,.9,.3,1), box-shadow .2s;
 }
-.swipe-hint.gone { opacity: 0; transform: translateX(-50%) translateY(12px) scale(.94); }
+.swipe-hint.gone { opacity: 0; transform: translateY(-50%) scale(.97); }
 
 .sh-step { display: flex; align-items: center; gap: 11px; position: relative; }
 .sh-step + .sh-step {
@@ -464,11 +466,7 @@ html, body {
 
 /* 长按充能：底光加亮，圆环随进度灌满 */
 .swipe-hint.charging {
-  border-color: rgba(0,255,136,.55);
-  box-shadow:
-    0 12px 36px -16px rgba(0,0,0,.95),
-    0 0 52px -10px rgba(0,255,136,.9),
-    inset 0 1px 0 rgba(255,255,255,.14);
+  box-shadow: 0 0 60px -14px rgba(0,255,136,.95);
 }
 .swipe-hint.charging .sh-ring::after {
   animation: none;
@@ -480,7 +478,7 @@ html, body {
 .swipe-hint::before {
   content: '';
   position: absolute; inset: 0; border-radius: inherit;
-  background: radial-gradient(120% 150% at 18% 50%, rgba(0,255,136,.16), transparent 62%);
+  background: radial-gradient(52% 130% at 50% 50%, rgba(0,255,136,.10), transparent 72%);
   animation: shBreath 2.8s ease-in-out infinite;
   pointer-events: none;
 }
@@ -1034,7 +1032,7 @@ body::after {
 .sheet img[data-grade="B"]      { --card-glow: rgba(74, 163, 255, .44); }
 .sheet img[data-grade="C"]      { --card-glow: rgba(0, 255, 136, .34); }
 .sheet img[data-grade="D"]      { --card-glow: rgba(154, 160, 168, .28); }
-.sheet img[data-grade="broken"] { --card-glow: rgba(255, 77, 94, .46); }
+
 .sheet img {
   animation: cardFloat 5.6s ease-in-out infinite, cardGlow 5.6s ease-in-out infinite;
 }

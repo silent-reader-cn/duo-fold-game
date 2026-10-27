@@ -1089,8 +1089,8 @@ function showCard() {
   const c = makeCard(cardState);
   const url = c.toDataURL('image/png');
   $('cardImg').src = url;
-  // 弹窗里那张图的外发光跟卡面主题色（= 评级色）一致，不再跟稀有度走
-  $('cardImg').dataset.grade = game.broken ? 'broken' : gradeOf(cardState);
+  // 弹窗里那张图的外发光跟卡面主题色（= 评级色）一致：稀有度、碎裂都不参与取色
+  $('cardImg').dataset.grade = gradeOf(cardState);
   $('dlCard').href = url;
   // 文件名里别留空格和 · ：各系统都对它不友好
   const slug = game.stageName.replace(/[^\w\u4e00-\u9fff-]+/g, '-').replace(/^-+|-+$/g, '');

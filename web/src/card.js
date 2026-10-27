@@ -180,9 +180,7 @@ const RSKIN = {
   legendary: { ink: '#ffd15c', l1: '#ffe08a', l2: '#e08a15', fill: [255, 176, 32], hex: '#ffb020', lw: 3.0, glow: 34,
                bg1: [39, 32, 18], mid: [18, 14, 9], bg2: [8, 7, 4] },
 };
-// 碎裂 / 无词条时也得有自己的一套，别让外框和整卡底色掉成灰白
-const BROKEN_SKIN = { ink: '#ff9aa4', l1: '#ffc2c8', l2: '#d0323f', fill: [255, 77, 94], hex: '#ff4d5e', lw: 2.4, glow: 22,
-                      bg1: [38, 20, 24], mid: [19, 11, 13], bg2: [8, 5, 6] };
+// 无词条时也要有自己的一套，别让外框和整卡底色掉成灰白
 const CLEAN_SKIN  = { ink: '#7dffbd', l1: '#a6ffd4', l2: '#00b862', fill: [0, 255, 136], hex: '#00ff88', lw: 2.0, glow: 16,
                       bg1: [19, 33, 27], mid: [10, 18, 15], bg2: [5, 9, 8] };
 const RAR_DESC = { legendary: 0, epic: 1, rare: 2, common: 3 };
@@ -222,13 +220,9 @@ export function gradeOf(st) {
  */
 export function makeCard(st) {
   const W = 1080;
-  const H = 2020;   // 表格行与词条胶囊都加高了一档，纵向再放 60
   const SS = 2;
   const c = document.createElement('canvas');
-  c.width = W * SS;
-  c.height = H * SS;
-  const ctx = c.getContext('2d');
-  ctx.scale(SS, SS);
+  const probe = c.getContext('2d');   // 先拿它量字宽；设完尺寸上下文会被重置
 
   const traits = st.traits || [];
   const order = { common: 0, rare: 1, epic: 2, legendary: 3 };
@@ -239,8 +233,83 @@ export function makeCard(st) {
   // 主题色 = 评级色（碎裂另算）：底色、外框、页眉、刻度、花纹全由它派生，
   // 这样卡片上不会出现「紫 A 配金卡面」这种两个色轴打架的情况
   const gr = grade(st);
-  const skinMain = st.broken ? BROKEN_SKIN : GRADE_SKIN[gr.g];
+  // 主题色只跟评级。碎裂不改主题色——否则又会出现「紫 A 配红卡面」，
+  // 碎裂感靠红印章 / 判定列 / 结论红字表达。
+  const skinMain = GRADE_SKIN[gr.g];
   const accent = skinMain.hex;
+
+  // ================= 预排版：先算整卡高度，再画 =================
+  // 词条多到 3 行时，原来写死的 2020 高度放不下「结论」，会把结论压到胶囊上。
+  // 这里按实际行数把卡拉高，结论与印章/条码永远各自占位。
+  const m = 68;
+  const CH = 46;              // 胶囊高
+  const CHIP_GAP = 12;        // 胶囊横向间距
+  const rowH = 52;            // 检测项行高
+  const pw = 700;
+  const ph = Math.round(pw / 1.4);
+  const px = (W - pw) / 2;
+  const py = 336;
+  const foldY = py + ph + 202;
+  const barY = foldY + 96;
+  const tY = barY + 86;
+
+  const rows = [
+    { head: true, a: t('card.th.item'), b: t('card.th.result'), c: t('card.th.verdict') },
+    {
+      a: t('card.row.crease'),
+      b: st.stage >= 6 ? t('card.val.irreversible') : st.stage >= 3 ? t('card.val.visible') : t('card.val.slight'),
+      bad: st.stage >= 6,
+    },
+    {
+      a: t('card.row.touch'),
+      b: st.stage >= 6 ? t('card.val.intermittent') : t('card.val.normal'),
+      bad: st.stage >= 6,
+    },
+    {
+      a: t('card.row.hinge'),
+      b: st.sand > 0 ? t('card.val.debris') : st.stage >= 8 ? t('card.val.loose') : t('card.val.normal'),
+      bad: st.sand > 0 || st.stage >= 8,
+    },
+    {
+      a: t('card.row.surface'),
+      b: st.fan > 0 ? t('card.val.coating') : t('card.val.intact'),
+      bad: st.fan > 0,
+    },
+    {
+      a: t('card.row.warranty'),
+      b: st.ac > 0 ? t('card.val.careUsed') : t('card.val.careUnused'),
+      dash: true,
+    },
+  ];
+
+  // 高稀有度排前面：一眼先看到最珍贵的那几条
+  const chips = [...traits].sort((a, b) => RAR_DESC[a.rarity] - RAR_DESC[b.rarity]);
+  const chipLabelY = tY + rows.length * rowH + 34;
+  const chipsTop = chipLabelY + 22;
+
+  probe.font = `600 23px ${CJK}`;
+  let chipRows = chips.length ? 1 : 0;
+  let cursor = m;
+  for (const tr of chips) {
+    const wChip = probe.measureText(tr.name).width + 56;   // 左形状标记 + 两侧留白
+    if (cursor + wChip > W - m) { cursor = m; chipRows += 1; }
+    cursor += wChip + CHIP_GAP;
+  }
+  const chipsBottom = chips.length
+    ? chipsTop + chipRows * (CH + CHIP_GAP) - CHIP_GAP
+    : chipLabelY;
+
+  const quoteMaxW = W - m - 320;   // 右侧留给印章
+  const qb = fitBlock(probe, st.quote, quoteMaxW, (s) => `400 ${s}px ${CJK}`, 29, 23, 2);
+  const quoteY = chipsBottom + 76;
+  const quoteBottom = quoteY + (qb.lines.length - 1) * (qb.size + 12);
+  // 340 = 印章顶部到卡底的留白（印章中心 H-236、半径 84）
+  const H = Math.max(2020, Math.ceil((quoteBottom + 340) / 2) * 2);
+
+  c.width = W * SS;
+  c.height = H * SS;
+  const ctx = c.getContext('2d');
+  ctx.scale(SS, SS);
 
   // ================= 底色（整卡染色）=================
   const bg = ctx.createLinearGradient(0, 0, W * 0.35, H);
@@ -276,8 +345,6 @@ export function makeCard(st) {
     ctx.fillRect(Math.random() * W, Math.random() * H, 1.3, 1.3);
   }
   ctx.restore();
-
-  const m = 68;
 
   // 外框（双线）：描边走「最高稀有度」的渐变，越稀有越粗越亮，还带一圈外发光
   const frameSkin = skinMain;
@@ -388,11 +455,6 @@ export function makeCard(st) {
   ctx.fillText(st.stageName, m, badgeY + 74);
 
   // ================= 设备照（取证角标）=================
-  const pw = 700;
-  const ph = Math.round(pw / 1.4);
-  const px = (W - pw) / 2;
-  const py = 336;
-
   // 机身
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,.85)';
@@ -456,7 +518,6 @@ export function makeCard(st) {
   }
 
   // ================= 结论区：折叠次数 =================
-  const foldY = py + ph + 202;
   ctx.textAlign = 'center';
   ctx.save();
   ctx.shadowColor = accent + 'cc';
@@ -471,7 +532,6 @@ export function makeCard(st) {
   ctx.fillText(t('card.afterFolds'), W / 2, foldY + 48);
 
   // STAGE 刻度尺
-  const barY = foldY + 96;
   const segW = 44;
   const gap = 10;
   const totalW = st.stageMax * segW + (st.stageMax - 1) * gap;
@@ -497,39 +557,8 @@ export function makeCard(st) {
   ctx.fillText(`STAGE ${String(st.stage).padStart(2, '0')} / ${String(st.stageMax).padStart(2, '0')}`, W / 2, barY + 40);
 
   // ================= 检测项表格 =================
-  const tY = barY + 86;
   const tx0 = m;
-  const tw = W - m * 2;
-  const rows = [
-    { head: true, a: t('card.th.item'), b: t('card.th.result'), c: t('card.th.verdict') },
-    {
-      a: t('card.row.crease'),
-      b: st.stage >= 6 ? t('card.val.irreversible') : st.stage >= 3 ? t('card.val.visible') : t('card.val.slight'),
-      bad: st.stage >= 6,
-    },
-    {
-      a: t('card.row.touch'),
-      b: st.stage >= 6 ? t('card.val.intermittent') : t('card.val.normal'),
-      bad: st.stage >= 6,
-    },
-    {
-      a: t('card.row.hinge'),
-      b: st.sand > 0 ? t('card.val.debris') : st.stage >= 8 ? t('card.val.loose') : t('card.val.normal'),
-      bad: st.sand > 0 || st.stage >= 8,
-    },
-    {
-      a: t('card.row.surface'),
-      b: st.fan > 0 ? t('card.val.coating') : t('card.val.intact'),
-      bad: st.fan > 0,
-    },
-    {
-      a: t('card.row.warranty'),
-      b: st.ac > 0 ? t('card.val.careUsed') : t('card.val.careUnused'),
-      dash: true,
-    },
-  ];
-
-  const rowH = 52;   // 46 → 52：手机上看导出图时，行距太密根本读不进去
+  const tw = W - m * 2;   // tY / rows / rowH 已在预排版里算好
   ctx.font = `400 22px ${CJK}`;
   rows.forEach((row, i) => {
     const y = tY + i * rowH;
@@ -562,15 +591,11 @@ export function makeCard(st) {
   });
 
   // ================= 词条 =================
-  let chipY = tY + rows.length * rowH + 34;
   if (traits.length) {
-    // 高稀有度排前面：一眼先看到最珍贵的那几条
-    const chips = [...traits].sort((a, b) => RAR_DESC[a.rarity] - RAR_DESC[b.rarity]);
-
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(163,171,184,.92)';
     ctx.font = `600 21px ${CJK}`;
-    ctx.fillText(t('card.defects', { n: traits.length }), m, chipY);
+    ctx.fillText(t('card.defects', { n: traits.length }), m, chipLabelY);
 
     // 右上：按稀有度统计，各自颜色，省得人去数
     ctx.textAlign = 'right';
@@ -582,18 +607,17 @@ export function makeCard(st) {
       const label = `${RARITY[rk].label} ×${n}`;
       ctx.font = `600 19px ${CJK}`;
       ctx.fillStyle = sk.ink;
-      ctx.fillText(label, rx, chipY - 2);
+      ctx.fillText(label, rx, chipLabelY - 2);
       rx -= ctx.measureText(label).width + 24;
     }
 
-    const CH = 46;          // 胶囊高：38 → 46，字号跟着能上到 23
     let cx = m;
-    let cy = chipY + 22;
+    let cy = chipsTop;
     for (const tr of chips) {
       const sk = RSKIN[tr.rarity] || RSKIN.common;
       ctx.font = `600 23px ${CJK}`;
       const tw2 = ctx.measureText(tr.name).width + 56;   // 左形状标记 + 两侧留白
-      if (cx + tw2 > W - m) { cx = m; cy += CH + 12; }
+      if (cx + tw2 > W - m) { cx = m; cy += CH + CHIP_GAP; }
 
       const g = ctx.createLinearGradient(cx, cy, cx + tw2, cy + CH);
       g.addColorStop(0, sk.l1);
@@ -625,21 +649,17 @@ export function makeCard(st) {
       ctx.fillText(tr.name, cx + 38, cy + CH / 2 + 1);
       ctx.textBaseline = 'alphabetic';
       ctx.textAlign = 'center';
-      cx += tw2 + 12;
+      cx += tw2 + CHIP_GAP;
     }
-    chipY = cy + CH + 36;
   }
 
   // ================= 结论 =================
-  // 结论靠左，右侧整段留给印章：长短句都不会被章压住
-  const quoteY = Math.min(Math.max(chipY + 30, H - 300), H - 240);
-  const quoteMaxW = W - m - 320;
+  // 位置在预排版里就算好了（跟着词条实际行数下移），这里只负责画
   ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(150,158,172,.8)';
   ctx.font = `400 20px ${MONO}`;
   ctx.fillText('INSPECTION CONCLUSION', m, quoteY - 32);
 
-  const qb = fitBlock(ctx, st.quote, quoteMaxW, (s) => `400 ${s}px ${CJK}`, 29, 23, 2);
   ctx.fillStyle = st.broken ? '#ff6b7a' : 'rgba(214,220,230,.97)';
   ctx.font = `400 ${qb.size}px ${CJK}`;
   qb.lines.forEach((ln, i) => ctx.fillText(ln, m, quoteY + i * (qb.size + 12)));
