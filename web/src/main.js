@@ -6,6 +6,8 @@ import { loadAch, recordRun, traitCount } from './achievements.js';
 
 const $ = (id) => document.getElementById(id);
 let starsEl = null;
+let lastAppliedBend = 1e9;   // 形变去重，同一角度不重复计算
+let dustAcc = 0;
 requestAnimationFrame(() => { starsEl = document.querySelector('.stars'); });
 
 
@@ -21,6 +23,8 @@ function initDust() {
   if (!dustCanvas) return;
   dustCtx = dustCanvas.getContext('2d');
   dustParts = Array.from({ length: DUST_N }, () => spawnDust(true));
+  DUST_SPRITE_COOL = makeDustSprite('198, 224, 255');
+  DUST_SPRITE_WARM = makeDustSprite('255, 226, 190');
   resizeDust();
   window.addEventListener('resize', resizeDust);
 }
@@ -39,9 +43,27 @@ function spawnDust(initial) {
   };
 }
 
+// 预渲染两张光点贴图：冷 / 暖。每帧只 drawImage，不再创建渐变对象
+let DUST_SPRITE_COOL = null;
+let DUST_SPRITE_WARM = null;
+
+function makeDustSprite(tint) {
+  const S = 64;
+  const cv = document.createElement('canvas');
+  cv.width = S; cv.height = S;
+  const g = cv.getContext('2d');
+  const grd = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  grd.addColorStop(0, `rgba(${tint}, 1)`);
+  grd.addColorStop(0.38, `rgba(${tint}, 0.34)`);
+  grd.addColorStop(1, `rgba(${tint}, 0)`);
+  g.fillStyle = grd;
+  g.fillRect(0, 0, S, S);
+  return cv;
+}
+
 function resizeDust() {
   if (!dustCanvas) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5);   // 浮尘不需要视网膜级精度
   dustW = dustCanvas.clientWidth || window.innerWidth;
   dustH = dustCanvas.clientHeight || window.innerHeight;
   dustCanvas.width = Math.round(dustW * dpr);
@@ -67,17 +89,11 @@ function updateDust(dt, excite) {
 
     const cx = p.x * dustW;
     const cy = p.y * dustH;
-    const rad = p.r * (1 + excite * 0.25);
+    const size = p.r * (1 + excite * 0.25) * 6.8;      // sprite 直径
 
-    const g = dustCtx.createRadialGradient(cx, cy, 0, cx, cy, rad * 3.4);
-    const tint = p.warm ? '255, 226, 190' : '198, 224, 255';
-    g.addColorStop(0, `rgba(${tint}, ${alpha})`);
-    g.addColorStop(0.4, `rgba(${tint}, ${alpha * 0.34})`);
-    g.addColorStop(1, `rgba(${tint}, 0)`);
-    dustCtx.fillStyle = g;
-    dustCtx.beginPath();
-    dustCtx.arc(cx, cy, rad * 3.4, 0, Math.PI * 2);
-    dustCtx.fill();
+    const spr = p.warm ? DUST_SPRITE_WARM : DUST_SPRITE_COOL;
+    dustCtx.globalAlpha = Math.min(1, alpha);
+    dustCtx.drawImage(spr, cx - size / 2, cy - size / 2, size, size);
   }
 }
 
@@ -661,8 +677,7 @@ canvas.addEventListener('pointermove', (e) => {
   targetBend = dx >= 0
     ? Math.min(dx * FOLD_CLOSE, FOLD_CLOSE)
     : Math.max(dx * (BEND_BACK / 0.5), -BEND_BACK);
-  bend = targetBend;
-  phone.setBend(bend);
+  bend = targetBend;   // 渲染循环里统一 setBend，避免每个指针事件都重算顶点
 
   // 沙子卡在铰链里：手指滑动过程中就该有细小的阻尼震动，
   // 而不是等到松手判定才震一下。按位移节流，避免每条指针事件都触发。
@@ -915,13 +930,22 @@ function tick(now) {
     const damp = game.sandUsed > 0 ? 9 : 14;   // 沙子卡住铰链，回弹更滞
     bend += (targetBend - bend) * Math.min(1, dt * damp);
     if (Math.abs(bend) < 0.0006) bend = 0;
+  }
+  // 每帧最多应用一次形变（拖拽时同样走这里）
+  if (bend !== lastAppliedBend) {
     phone.setBend(bend);
+    lastAppliedBend = bend;
   }
 
   updateShards(dt);
 
   const tickExcite = Math.min(Math.abs(bend) / (Math.PI / 2), 1);
-  updateDust(dt, tickExcite);
+  // 粒子 30fps 更新：浮尘本来就慢，隔帧画看不出差别，能省一半 2D 绘制
+  dustAcc += dt;
+  if (dustAcc >= 0.033) {
+    updateDust(dustAcc, tickExcite);
+    dustAcc = 0;
+  }
 
   if (glowState.active) {
     glowState.t += dt;
@@ -950,7 +974,7 @@ function tick(now) {
   // 高阶故障需要时间驱动（闪屏、触点漂移）
   if (!game.broken && game.stage >= 4) {
     screenTimer += dt;
-    if (screenTimer > 0.11) {
+    if (screenTimer > 0.18) {
       screenTimer = 0;
       phone.updateScreen({ ...screenState(), t: now / 1000 });
     }

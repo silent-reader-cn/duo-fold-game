@@ -625,7 +625,8 @@ body::after {
 .orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(70px);
+  /* 不用 filter: blur —— 大面积的模糊滤镜在中低端 GPU 上每帧都要重新合成，
+     而 radial-gradient 本身已经是柔边，加 blur 纯属浪费 */
   will-change: transform, opacity;
 }
 .o1 {
@@ -633,21 +634,23 @@ body::after {
   left: -26vmax; top: -34vmax;
   background: radial-gradient(circle, rgba(58, 128, 198, .55), rgba(36, 78, 128, .18) 55%, transparent 72%);
   opacity: calc(.30 + var(--excite, 0) * .34);
-  animation: drift1 26s ease-in-out infinite;
+  /* 大块渐变每帧 transform 会触发重新合成，中低端机吃不消；
+     光斑保持静态，动效交给粒子层和 --excite 的亮度变化 */
+  transition: opacity .45s ease;
 }
 .o2 {
   width: 62vmax; height: 62vmax;
   right: -24vmax; bottom: -26vmax;
   background: radial-gradient(circle, rgba(102, 62, 168, .50), rgba(62, 38, 102, .16) 55%, transparent 72%);
   opacity: calc(.26 + var(--excite, 0) * .32);
-  animation: drift2 34s ease-in-out infinite;
+  transition: opacity .45s ease;
 }
 .o3 {
   width: 48vmax; height: 48vmax;
   left: 26vmax; bottom: -22vmax;
   background: radial-gradient(circle, rgba(28, 118, 118, .40), transparent 70%);
   opacity: calc(.20 + var(--excite, 0) * .30);
-  animation: drift3 20s ease-in-out infinite;
+  transition: opacity .45s ease;
 }
 
 @keyframes drift1 {
