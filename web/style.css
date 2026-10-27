@@ -124,17 +124,58 @@ html, body {
 
 /* 顶部右侧 */
 .hud-right { display: flex; align-items: center; gap: 12px; }
+/* 成就入口：玻璃胶囊 + 金杯图标；小红点挂在右上角 */
 .book-btn {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
   font-family: inherit; font-size: 12px; letter-spacing: .08em;
-  padding: 6px 13px; border-radius: 9px; cursor: pointer;
-  background: rgba(255,255,255,.06); color: var(--fg);
-  border: 1px solid rgba(255,255,255,.16);
+  padding: 5px 11px 5px 9px; border-radius: 999px; cursor: pointer;
+  color: var(--fg);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .085), rgba(255, 255, 255, .022)),
+    rgba(12, 15, 20, .72);
+  border: 1px solid rgba(255, 255, 255, .16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .12),
+    0 8px 20px -14px rgba(0, 0, 0, .95);
   pointer-events: auto;
-  transition: all .15s;
+  transition: border-color .18s, box-shadow .18s, transform .12s, color .18s;
 }
-.book-btn:active { border-color: var(--green); color: var(--green); }
+.book-btn .bb-icon {
+  width: 14px; height: 14px; flex: none; display: block;
+  color: rgba(255, 190, 90, .92);
+  filter: drop-shadow(0 0 5px rgba(255, 176, 32, .45));
+  transition: color .18s;
+}
+.book-btn span { line-height: 1; }
+.book-btn:active {
+  transform: scale(.955);
+  border-color: rgba(255, 176, 32, .6);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .18),
+    0 0 22px -8px rgba(255, 176, 32, .9);
+}
+@media (hover: hover) {
+  .book-btn:hover { border-color: rgba(255, 255, 255, .3); }
+  .book-btn:hover .bb-icon { color: rgba(255, 205, 120, 1); }
+}
+/* 有新解锁的成就：右上角小红点（自带一圈底色，压在胶囊边上也不会糊） */
+.bb-dot {
+  position: absolute; top: -2px; right: -2px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #ff4d4f;
+  box-shadow:
+    0 0 0 2px rgba(9, 11, 15, .95),
+    0 0 10px 1px rgba(255, 77, 79, .75);
+  animation: bbDot 1.8s ease-in-out infinite;
+}
+.bb-dot[hidden] { display: none; }
+@keyframes bbDot {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.18); }
+}
 
-/* 成就手册 */
+/* 成就页 */
 .book {
   position: fixed; inset: 0; z-index: 40;
   background: rgba(4,5,8,.86); backdrop-filter: blur(16px);
@@ -172,17 +213,30 @@ html, body {
 
 .book-top { display: flex; align-items: center; gap: 15px; margin-bottom: 16px; }
 .book-ring { position: relative; width: 62px; height: 62px; flex: none; }
-.book-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+/* 圆环外发光必须画在 svg 元素自身（CSS filter 不裁出盒），
+   不能画在被 SVG 内部：<svg> 默认 overflow:hidden，drop-shadow 会被视口直接切掉 */
+.book-ring svg {
+  width: 100%; height: 100%; transform: rotate(-90deg);
+  overflow: visible;
+  filter: drop-shadow(0 0 6px rgba(0, 255, 136, .55));
+  animation: ringGlow 3s ease-in-out infinite;
+}
 .book-ring circle { fill: none; stroke-width: 5; stroke-linecap: round; }
 .ring-bg { stroke: rgba(255,255,255,.09); }
 .ring-fg {
-  stroke: var(--green); stroke-dasharray: 188.5; stroke-dashoffset: 188.5;
+  stroke: url(#ringGrad); stroke-dasharray: 188.5; stroke-dashoffset: 188.5;
   transition: stroke-dashoffset .7s cubic-bezier(.3,1,.4,1);
-  filter: drop-shadow(0 0 6px rgba(0,255,136,.55));
+}
+/* 环中心留一点冷绿底光，让百分比不是浮在黑上 */
+.book-ring::before {
+  content: ''; position: absolute; inset: 11px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 255, 136, .13), transparent 72%);
+  pointer-events: none;
 }
 .book-ring span {
   position: absolute; inset: 0; display: grid; place-items: center;
-  font-size: 13px; font-weight: 700; color: var(--fg);
+  font-size: 13px; font-weight: 700; color: var(--fg); letter-spacing: .02em;
+  text-shadow: 0 0 10px rgba(0, 255, 136, .28);
 }
 .book-heading h2 { font-size: 20px; letter-spacing: .1em; font-weight: 700; }
 .book-heading p { font-size: 11.5px; color: var(--dim); margin-top: 4px; letter-spacing: .06em; }
@@ -210,6 +264,19 @@ html, body {
   transition: all .18s;
 }
 .book-trait.locked { opacity: .34; }
+/* 本次新解锁：绿边 + NEW 标签，一眼看出哪几条是刚拿到的 */
+.book-trait.fresh {
+  border-color: rgba(0, 255, 136, .34);
+  background: rgba(0, 255, 136, .05);
+  box-shadow: 0 0 18px -9px rgba(0, 255, 136, .9);
+}
+.book-trait .bt-count { display: flex; align-items: center; gap: 6px; }
+.book-trait .bt-new {
+  font-style: normal; font-size: 8px; letter-spacing: .1em; line-height: 1;
+  padding: 2px 4px; border-radius: 4px;
+  color: var(--green); background: rgba(0, 255, 136, .14);
+  border: 1px solid rgba(0, 255, 136, .46);
+}
 .book-trait .bt-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 .book-trait .bt-name { font-size: 12.5px; font-weight: 600; }
 .book-trait .bt-rarity {
@@ -369,32 +436,7 @@ html, body {
   100% { transform: scale(.15); opacity: .35; }
 }
 
-/* 自动折叠进行中：只留一条状态胶囊，告诉玩家怎么停 */
-.auto-chip {
-  position: fixed; left: 50%; bottom: calc(258px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  z-index: 16; pointer-events: none;
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 16px; border-radius: 999px;
-  background: rgba(10,14,18,.9);
-  border: 1px solid rgba(255,176,32,.45);
-  box-shadow: 0 10px 30px -16px rgba(0,0,0,.9), 0 0 30px -12px rgba(255,176,32,.85);
-  font-size: 11px; letter-spacing: .12em; color: #ffe6b8;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  animation: cnIn .35s cubic-bezier(.2,.9,.3,1) both;
-}
-.auto-chip[hidden] { display: none; }
-.auto-chip i {
-  width: 7px; height: 7px; border-radius: 50%;
-  background: #ffb020; box-shadow: 0 0 10px rgba(255,176,32,.95);
-  animation: acBlink 1s ease-in-out infinite;
-}
-@keyframes acBlink {
-  0%, 100% { opacity: .35; transform: scale(.85); }
-  50%      { opacity: 1;   transform: scale(1.1); }
-}
-
+/* 自动折叠不再挂提示胶囊：按住就折、松手就停是直觉操作，任何浮层都只会挡视线 */
 
 
 /* ================= 稀有度条带（斜向贯穿） ================= */
@@ -847,22 +889,19 @@ body::after {
   50%      { box-shadow: 0 34px 88px -14px rgba(40,110,180,.35), 0 0 0 1px rgba(255,255,255,.07); }
 }
 
-/* 手册进度环：缓慢流光 */
-.ring-fg {
-  animation: ringFlow 3s ease-in-out infinite;
-}
-@keyframes ringFlow {
-  0%, 100% { filter: drop-shadow(0 0 6px rgba(0,255,136,.55)); }
-  50%      { filter: drop-shadow(0 0 14px rgba(0,255,136,.95)); }
+/* 成就进度环：缓慢流光（画在 svg 元素上，不会被 SVG 视口裁掉） */
+@keyframes ringGlow {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(0, 255, 136, .45)); }
+  50%      { filter: drop-shadow(0 0 15px rgba(0, 255, 136, .95)); }
 }
 
 /* 减少动画偏好：尊重系统设置 */
 @media (prefers-reduced-motion: reduce) {
   body::before, .stage-badge, .stage-bar i.on, .stage-row h1,
-  .items button:not(:disabled), .sheet img, .ring-fg,
+  .items button:not(:disabled), .sheet img, .book-ring svg,
   #btnAC.can-upgrade, #btnAC.can-upgrade::after,
   .swipe-hint::before, .sh-dot, .sh-chev i, .cn-rule i.next,
-  .sh-ring::after, .auto-chip i, .auto-chip {
+  .sh-ring::after, .bb-dot {
     animation: none !important;
   }
   #btnAC.can-upgrade { transform: none !important; }

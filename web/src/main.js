@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Game, MAX_STAGE, FAN_MAX, SAND_MAX, FLAT_LINES, TRAIT_MAP, RARITY, TRAITS, acLevelFor, HOLD_MS, HOLD_FIRST_DELAY, holdPulseMs, holdPulseGap } from './logic.js';
 import { createPhone, makeEnvironment, setWallpaper } from './phone.js';
 import { makeCard } from './card.js';
-import { loadAch, loadAcMax, saveAcMax, recordRun, traitCount } from './achievements.js';
+import { loadAch, loadAcMax, saveAcMax, recordRun, traitCount, unseenCount, markSeen } from './achievements.js';
 
 const $ = (id) => document.getElementById(id);
 let starsEl = null;
@@ -286,7 +286,7 @@ phone.group.rotation.y = 0.06;
 scene.add(phone.group);
 
 const game = new Game();
-// 本机历史上摸到过的最高品阶：决定延保能升级到几次（数值存档在成就手册里）
+// 本机历史上摸到过的最高品阶：决定延保能升级到几次（数值存档在成就页的本地存档里）
 let bestStage = loadAch().bestStage || 0;
 game.acMax = loadAcMax();
 
@@ -790,8 +790,6 @@ function startAutoFold() {
   autoFolding = true;
   hintSuppressed = true;
   syncSwipeHint();
-  const chip = $('autoChip');
-  if (chip) chip.hidden = false;
   sfx('up');
   log('长按锁定：按住不放就一直折，松手即停。');
   autoFoldStep();
@@ -805,8 +803,6 @@ function stopAutoFold() {
   autoTimer = 0;
   foldSwingTimer = 0;
   targetBend = 0;
-  const chip = $('autoChip');
-  if (chip) chip.hidden = true;
   hintSuppressed = false;
   syncSwipeHint();
   if (!game.broken && !game.finished) log('自动折叠已停。');
@@ -995,7 +991,9 @@ $('btnStop').addEventListener('click', () => {
   showCard();
 });
 
-// ================= 成就手册 =================
+// ================= 成就页 =================
+let freshIds = [];   // 本次打开前还没看过的解锁，卡片上标 NEW
+
 function renderBook() {
   const a = loadAch();
   const total = TRAITS.length;
@@ -1033,13 +1031,14 @@ function renderBook() {
           const n = traitCount(a, t.id);
           const rar = RARITY[t.rarity];
           const locked = n === 0;
-          return `<div class="book-trait ${locked ? 'locked' : ''}">
+          const fresh = !locked && freshIds.includes(t.id);
+          return `<div class="book-trait ${locked ? 'locked' : ''} ${fresh ? 'fresh' : ''}">
             <div class="bt-top">
               <span class="bt-name" style="color:${locked ? 'var(--dim)' : rar.color}">${locked ? '???' : t.name}</span>
               <span class="bt-rarity" style="color:${rar.color}">${rar.label}</span>
             </div>
             <div class="bt-desc">${locked ? '尚未解锁' : t.desc}</div>
-            ${locked ? '' : `<div class="bt-count">×${n}</div>`}
+            ${locked ? '' : `<div class="bt-count">×${n}${fresh ? '<i class="bt-new">NEW</i>' : ''}</div>`}
           </div>`;
         })
         .join('');
@@ -1049,16 +1048,27 @@ function renderBook() {
     .join('');
 }
 
+// 入口右上角小红点：有没看过的新解锁就点亮，打开成就页即视为看过
+function syncBookDot() {
+  const dot = $('bookDot');
+  if (dot) dot.hidden = unseenCount() === 0;
+}
+
 $('btnBook').addEventListener('click', () => {
+  freshIds = loadAch().unseen.slice();   // 先记下"这次才看到的"，渲染完再清
   renderBook();
   $('book').hidden = false;
+  markSeen();
+  syncBookDot();
 });
 $('closeBook').addEventListener('click', () => { $('book').hidden = true; });
+syncBookDot();
 
 // ================= 成就卡片 ==================
 function showCard() {
   const ach = recordRun(game, game.traits.some((id) => TRAIT_MAP[id].rarity === 'legendary'));
   bestStage = ach.bestStage;   // 本机最高品阶：延保能升级到几次看它
+  syncBookDot();               // 有新解锁 → 成就入口点小红点
   const c = makeCard({
     stage: game.stage,
     stageName: game.stageName,

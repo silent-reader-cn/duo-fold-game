@@ -1,16 +1,16 @@
-// 成就手册：存浏览器本地
+// 成就存档：存浏览器本地
 const KEY = 'duofold.ach.v1';
 
-const EMPTY = { traits: {}, bestStage: 0, bestFolds: 0, runs: 0, legendary: 0, clears: 0, acMax: 1 };
+const EMPTY = { traits: {}, bestStage: 0, bestFolds: 0, runs: 0, legendary: 0, clears: 0, acMax: 1, unseen: [] };
 
 export function loadAch() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return { ...EMPTY, traits: {} };
+    if (!raw) return { ...EMPTY, traits: {}, unseen: [] };
     const d = JSON.parse(raw);
-    return { ...EMPTY, ...d, traits: d.traits || {} };
+    return { ...EMPTY, ...d, traits: d.traits || {}, unseen: Array.isArray(d.unseen) ? d.unseen : [] };
   } catch (e) {
-    return { ...EMPTY, traits: {} };
+    return { ...EMPTY, traits: {}, unseen: [] };
   }
 }
 
@@ -31,7 +31,7 @@ export function saveAcMax(n) {
   return a.acMax;
 }
 
-/** 记录一局结束 */
+/** 记录一局结束；首次解锁的词条进 unseen，用来在入口上点小红点 */
 export function recordRun(game, isLegendary) {
   const a = loadAch();
   a.runs += 1;
@@ -39,6 +39,7 @@ export function recordRun(game, isLegendary) {
   if (game.folds > a.bestFolds) a.bestFolds = game.folds;
   if (isLegendary) a.legendary += 1;
   for (const id of game.traits) {
+    if (!traitCount(a, id) && !a.unseen.includes(id)) a.unseen.push(id);
     a.traits[id] = (a.traits[id] || 0) + 1;
   }
   saveAch(a);
@@ -47,4 +48,19 @@ export function recordRun(game, isLegendary) {
 
 export function traitCount(a, id) {
   return (a && a.traits && a.traits[id]) || 0;
+}
+
+/** 还没看过的新解锁数量 */
+export function unseenCount() {
+  return loadAch().unseen.length;
+}
+
+/** 打开成就页就算看过了 */
+export function markSeen() {
+  const a = loadAch();
+  if (!a.unseen.length) return 0;
+  const n = a.unseen.length;
+  a.unseen = [];
+  saveAch(a);
+  return n;
 }

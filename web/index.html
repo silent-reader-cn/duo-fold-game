@@ -103,7 +103,18 @@
       <div class="brand">DUO FOLD<em>折叠耐力测试</em></div>
       <div class="hud-right">
         <div class="folds">折叠 <b id="foldCount">0</b> 次</div>
-        <button id="btnBook" class="book-btn">手册</button>
+        <button id="btnBook" class="book-btn" aria-label="成就">
+          <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+            <path d="M4 22h16" />
+            <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+            <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+            <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+          </svg>
+          <span>成就</span>
+          <i class="bb-dot" id="bookDot" hidden></i>
+        </button>
       </div>
     </header>
 
@@ -143,10 +154,6 @@
       </div>
     </div>
 
-    <div class="auto-chip" id="autoChip" hidden>
-      <i></i><span>自动折叠中 · 松手即停</span>
-    </div>
-
     <footer class="panel">
       <div class="log" id="log"></div>
       <div class="risk" id="risk"></div>
@@ -175,13 +182,19 @@
       <div class="book-top">
         <div class="book-ring">
           <svg viewBox="0 0 72 72">
+            <defs>
+              <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#00ff88" />
+                <stop offset="100%" stop-color="#4ad9ff" />
+              </linearGradient>
+            </defs>
             <circle class="ring-bg" cx="36" cy="36" r="30"></circle>
             <circle class="ring-fg" id="ringFg" cx="36" cy="36" r="30"></circle>
           </svg>
           <span id="ringText">0%</span>
         </div>
         <div class="book-heading">
-          <h2>成就手册</h2>
+          <h2>成就</h2>
           <p id="bookProgress">已解锁 0 / 25</p>
         </div>
       </div>
