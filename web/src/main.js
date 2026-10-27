@@ -882,11 +882,21 @@ function tick(now) {
   // 这里按折叠角度做位置补偿，保证任何角度下都居中不溢出。
   if (!game.broken) {
     const ab = Math.abs(bend);
-    // 竖直：防止 V 形顶出视口上沿
-    // 水平：主导边翻过去后整体重心右移，需要回正；补偿作用在整机上，
-    // 不是让固定那半边参与折叠，所以不会破坏「另一半不动」的手感
-    phone.group.position.y = 0.11 - ab * 0.13;
+    // 常驻呼吸：静止时也在缓慢浮动，界面不会看起来「卡住」
+    const tt = now / 1000;
+    const excite = Math.min(ab / (Math.PI / 2), 1);          // 0~1 折叠强度
+    const floatAmp = 0.011 + excite * 0.042;                  // 越折越晃
+    const floatSpd = 1.15 + excite * 2.4;
+
+    phone.group.position.y =
+      0.11 - ab * 0.13 + Math.sin(tt * floatSpd) * floatAmp;
     phone.group.position.x = -ab * 0.24;
+
+    // 轻微的横向摆动（绕着自身轴，不是整机偏转）
+    phone.group.rotation.z = Math.sin(tt * 0.82) * (0.006 + excite * 0.012);
+
+    // 把折叠强度交给 CSS，让背景呼吸/徽章辉光同步夸张起来
+    document.documentElement.style.setProperty('--excite', excite.toFixed(3));
   }
 
   // 报废后缓慢自转，像在看一件遗物

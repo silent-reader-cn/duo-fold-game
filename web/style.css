@@ -539,3 +539,92 @@ body::after {
   border: 1px solid rgba(255, 255, 255, .10);
   box-shadow: 0 26px 70px -18px rgba(0, 0, 0, .9), 0 0 0 1px rgba(0, 0, 0, .5);
 }
+
+
+/* ================= 常驻循环动画 ================= */
+/* 全局激励量：折叠时为 0~1，由 JS 每帧写入，用来同步放大所有呼吸效果 */
+:root { --excite: 0; }
+
+/* 背景呼吸层（在画布之下） */
+body::before {
+  content: '';
+  position: fixed; inset: -12%; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(58% 42% at 50% 24%, rgba(66, 132, 194, .26), transparent 70%),
+    radial-gradient(44% 38% at 50% 80%, rgba(94, 58, 156, .18), transparent 72%);
+  animation: bgBreathe 7s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+@keyframes bgBreathe {
+  0%, 100% { transform: scale(1); opacity: .5; }
+  50% {
+    transform: scale(calc(1.07 + var(--excite, 0) * 0.07));
+    opacity: calc(.78 + var(--excite, 0) * .18);
+  }
+}
+
+/* 品阶徽章：辉光呼吸 */
+.stage-badge {
+  animation: badgeGlow 2.8s ease-in-out infinite;
+}
+@keyframes badgeGlow {
+  0%, 100% { box-shadow: 0 0 14px -6px var(--sc, transparent), inset 0 1px 0 rgba(255,255,255,.14); }
+  50%      { box-shadow: 0 0 30px -2px var(--sc, transparent), inset 0 1px 0 rgba(255,255,255,.22); }
+}
+
+/* 已点亮的品阶格：明暗涌动，像在跑马 */
+.stage-bar i.on {
+  animation: segGlow 1.9s ease-in-out infinite;
+}
+@keyframes segGlow {
+  0%, 100% { opacity: .74; }
+  50%      { opacity: 1; }
+}
+
+/* 品阶名：极缓慢的光晕明暗 */
+.stage-row h1 {
+  animation: nameGlow 3.4s ease-in-out infinite;
+}
+@keyframes nameGlow {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.18); }
+}
+
+/* 底部按钮：待命时的细微呼吸，暗示可操作 */
+.items button:not(:disabled) {
+  animation: btnBreath 3.6s ease-in-out infinite;
+}
+@keyframes btnBreath {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 2px 10px -6px rgba(0,0,0,.9); }
+  50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 4px 18px -8px rgba(90,150,220,.5); }
+}
+
+/* 成就卡：浮起 + 外发光脉冲 */
+.sheet img {
+  animation: cardFloat 5.6s ease-in-out infinite, cardGlow 5.6s ease-in-out infinite;
+}
+@keyframes cardFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-7px) scale(1.006); }
+}
+@keyframes cardGlow {
+  0%, 100% { box-shadow: 0 26px 70px -18px rgba(0,0,0,.9), 0 0 0 1px rgba(0,0,0,.5); }
+  50%      { box-shadow: 0 34px 88px -14px rgba(40,110,180,.35), 0 0 0 1px rgba(255,255,255,.07); }
+}
+
+/* 手册进度环：缓慢流光 */
+.ring-fg {
+  animation: ringFlow 3s ease-in-out infinite;
+}
+@keyframes ringFlow {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(0,255,136,.55)); }
+  50%      { filter: drop-shadow(0 0 14px rgba(0,255,136,.95)); }
+}
+
+/* 减少动画偏好：尊重系统设置 */
+@media (prefers-reduced-motion: reduce) {
+  body::before, .stage-badge, .stage-bar i.on, .stage-row h1,
+  .items button:not(:disabled), .sheet img, .ring-fg {
+    animation: none !important;
+  }
+}
