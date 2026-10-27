@@ -163,6 +163,7 @@ const DICT = {
   'card.val.careUnused': ['未使用', 'Unused'],
   'card.val.fail': ['异常', 'FAIL'],
   'card.val.pass': ['合格', 'PASS'],
+  'card.scan': ['扫码 · 你也来折一台', 'SCAN · FOLD IT YOURSELF'],
   'card.defects': ['检出故障项 {n}', 'Defects found · {n}'],
   'card.stamp1': ['人为损坏', 'USER DAMAGE'],
   'card.stamp2': ['不予保修', 'WARRANTY VOID'],

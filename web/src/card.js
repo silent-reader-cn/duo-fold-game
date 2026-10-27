@@ -1,5 +1,6 @@
 import { drawScreen } from './phone.js';
 import { RARITY } from './logic.js';
+import { QR_MODULES } from './qr-app.js';
 import { t, getLang } from './i18n.js';
 
 const SC = '"PingFang SC","Microsoft YaHei UI","Microsoft YaHei","Noto Sans SC",sans-serif';
@@ -106,6 +107,26 @@ function patternField(ctx, W, H, skin, kind) {
     }
   }
   ctx.restore();
+}
+
+/** 结算卡上的二维码：白底板自带 4 模块静区，任何尺寸都能扫 */
+function drawQR(ctx, x, y, size, modules, plate, ink) {
+  const n = modules.length;
+  const quiet = 4;
+  const cell = size / (n + quiet * 2);
+  rr(ctx, x, y, size, size, 10);
+  ctx.fillStyle = plate;
+  ctx.fill();
+  ctx.fillStyle = ink;
+  for (let r = 0; r < n; r++) {
+    const row = modules[r];
+    for (let c = 0; c < n; c++) {
+      if (row.charCodeAt(c) === 49) {   // '1'
+        // +0.4 重叠，避免相邻模块之间漏出细缝
+        ctx.fillRect(x + (c + quiet) * cell, y + (r + quiet) * cell, cell + 0.4, cell + 0.4);
+      }
+    }
+  }
 }
 
 /** 底部徽记：正中的八角花，替代空着的那块黑 */
@@ -700,14 +721,25 @@ export function makeCard(st) {
   }
   ctx.restore();
 
+  // ================= 二维码：指向应用 Page =================
+  const qrSize = 168;
+  const qrX = m;
+  const qrY = H - 232;
+  drawQR(ctx, qrX, qrY, qrSize, QR_MODULES, '#f5f7fb', '#0a0d13');
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(163,171,184,.85)';
+  ctx.font = `400 16px ${MONO}`;
+  ctx.fillText(t('card.scan'), qrX, qrY - 14);
+
   // ================= 底部条码 =================
   const bcY = H - 112;
+  const bcX = qrX + qrSize + 38;
   ctx.save();
   ctx.globalAlpha = 0.5;
-  let bxp = m;
+  let bxp = bcX;
   let seed = 20261026;
   const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
-  while (bxp < m + 300) {
+  while (bxp < bcX + 290) {
     const w = rnd() > 0.5 ? 2 : 4;
     ctx.fillStyle = 'rgba(220,226,236,.75)';
     ctx.fillRect(bxp, bcY, w, 40);
@@ -721,8 +753,7 @@ export function makeCard(st) {
   ctx.fillText('DUO FOLD · INSPECTION DIVISION', W - m, bcY + 28);
   ctx.fillText(st.serial, W - m, bcY + 54);
 
-  // 底部正中一枚八角花徽记，高稀有度才画
-  if (orn !== 'none') medallion(ctx, W / 2, H - 166, frameSkin, orn === 'classic' ? 28 : 22);
+  // 底部八角花徽记已撤：左下现在是二维码（功能件），中间再挂一枚装饰会显得浮
 
   return c;
 }
