@@ -15,6 +15,32 @@ const GRACE_FOLDS = 2;
 export const FAN_MAX = 1;   // 百分百触发词条，只能赌一次
 export const SAND_MAX = 1;
 
+// ================= 延保（CARE+）=================
+// 单局最多能自动换机几次，随「本机达到过的最高品阶」解锁：
+// 8 阶 → 2 次，9 阶 → 3 次，10 阶 → 4 次。升级要玩家在折叠数为 0 时自己点。
+export const AC_LEVEL_MAX = 4;
+
+export function acLevelFor(bestStage) {
+  const s = Math.max(0, Math.floor(bestStage || 0));
+  return Math.min(AC_LEVEL_MAX, Math.max(1, s - 6));
+}
+
+// ================= 长按充能（自动折叠）=================
+// 手感参数：按住不动多久启动，以及充能过程中每一下震动的强度与间隔。
+// 强度递增、间隔递减 —— 脉冲越来越密、越来越重，最后一下最强，启动瞬间不再补震。
+export const HOLD_MS = 820;
+export const HOLD_FIRST_DELAY = 130;   // 首下缓闸，避免正常拖拽白挨一下
+
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+export function holdPulseMs(progress) {
+  return Math.round(5 + clamp01(progress) * 32);
+}
+
+export function holdPulseGap(progress) {
+  return Math.round(150 - clamp01(progress) * 88);
+}
+
 
 // ================= 词条系统 =================
 // 权重是按"该稀有度每个词条"给的，再按词条数量累加：
@@ -80,6 +106,8 @@ export class Game {
     this.fanUsed = 0;
     this.sandUsed = 0;
     this.acUsed = 0;
+    // 延保上限是跨局保留的进度，换机时不能被打回 1
+    this.acMax = this.acMax || 1;
     this.traits = [];
   }
 
@@ -153,13 +181,15 @@ export class Game {
 
     // 碎裂
     if (!guarded && r < pBreak) {
-      // 延保自动生效：不需要手动开启，碎裂瞬间自动换机（一辈子只有一次）
-      if (this.acUsed < 1) {
+      // 延保自动生效：不需要手动开启，碎裂瞬间自动换机（上限随品阶升级）
+      const acLeft = (this.acMax || 1) - this.acUsed;
+      if (acLeft > 0) {
         this.acUsed += 1;
         this.acShield = false;
         this.stage = Math.max(1, this.stage - 1);
         return {
           result: 'ac',
+          left: (this.acMax || 1) - this.acUsed,
           text: '屏幕窜出一道绿线——延保自动生效，直接换机。代价是标签降一阶。',
         };
       }
@@ -213,6 +243,21 @@ export class Game {
   // 延保已改为自动生效，不再手动开启
   useAC() {
     return null;
+  }
+
+  /** 还剩几次自动换机 */
+  get acLeft() {
+    return Math.max(0, (this.acMax || 1) - this.acUsed);
+  }
+
+  /** 折叠数为 0 时才能升级延保上限；target 由本机最高品阶算出 */
+  upgradeAc(target) {
+    if (this.folds !== 0 || this.broken || this.finished) return 0;
+    const t = Math.min(AC_LEVEL_MAX, Math.max(1, Math.floor(target || 0)));
+    if (t <= (this.acMax || 1)) return 0;
+    const from = this.acMax || 1;
+    this.acMax = t;
+    return { from, to: t };
   }
 
   stop() {

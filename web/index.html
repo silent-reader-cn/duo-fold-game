@@ -44,18 +44,41 @@
       <div class="traits" id="traits"></div>
     </div>
    </div>
-    <div class="swipe-hint" id="swipeHint">
-      <div class="swipe-track"><i class="swipe-dot"></i></div>
-      <div class="swipe-text">向右滑动 · 第一次折叠</div>
+    <div class="swipe-hint" id="swipeHint" aria-hidden="true">
+      <div class="sh-step">
+        <div class="sh-lane"><i class="sh-dot"></i></div>
+        <div class="sh-chev"><i>›</i><i>›</i><i>›</i></div>
+        <div class="sh-txt">
+          <b>向右滑动</b>
+          <em>按住机身 · 掰出第一折</em>
+        </div>
+      </div>
+      <div class="sh-step sh-step-hold">
+        <div class="sh-ring"></div>
+        <div class="sh-txt">
+          <b>长按不动</b>
+          <em>自动连续折叠 · 直到报废</em>
+        </div>
+      </div>
+    </div>
+
+    <div class="auto-chip" id="autoChip" hidden>
+      <i></i><span>自动折叠中 · 点一下屏幕停止</span>
     </div>
 
     <footer class="panel">
       <div class="log" id="log"></div>
       <div class="risk" id="risk"></div>
+      <div class="care-note" id="careNote" hidden>
+        <div class="cn-head">本机最高 <b id="cnBest">—</b></div>
+        <div class="cn-rule" id="cnRule">
+          <i data-lv="2">8 阶 · 2 次</i><i data-lv="3">9 阶 · 3 次</i><i data-lv="4">10 阶 · 4 次</i>
+        </div>
+      </div>
       <div class="items">
         <button id="btnFan" data-kind="fan">吹风机<b>2</b></button>
         <button id="btnSand" data-kind="sand">沙子<b>2</b></button>
-        <button id="btnAC">延保<b>1</b></button>
+        <button id="btnAC">延保<b id="acSub">续命 ×1</b></button>
       </div>
       <button id="btnStop" class="stop">收手 · 出成就卡</button>
     </footer>

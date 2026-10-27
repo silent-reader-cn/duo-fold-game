@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { Game, MAX_STAGE, FAN_MAX, SAND_MAX, FLAT_LINES, TRAIT_MAP, RARITY, TRAITS } from './logic.js';
+import { Game, MAX_STAGE, FAN_MAX, SAND_MAX, FLAT_LINES, TRAIT_MAP, RARITY, TRAITS, acLevelFor, HOLD_MS, HOLD_FIRST_DELAY, holdPulseMs, holdPulseGap } from './logic.js';
 import { createPhone, makeEnvironment, setWallpaper } from './phone.js';
 import { makeCard } from './card.js';
-import { loadAch, recordRun, traitCount } from './achievements.js';
+import { loadAch, loadAcMax, saveAcMax, recordRun, traitCount } from './achievements.js';
 
 const $ = (id) => document.getElementById(id);
 let starsEl = null;
@@ -279,6 +279,9 @@ phone.group.rotation.y = 0.06;
 scene.add(phone.group);
 
 const game = new Game();
+// 本机历史上摸到过的最高品阶：决定延保能升级到几次（数值存档在成就手册里）
+let bestStage = loadAch().bestStage || 0;
+game.acMax = loadAcMax();
 
 // ================= 玻璃碎片 + 镜头震动 =================
 const SHARD_COUNT = 120;
@@ -547,8 +550,9 @@ function showRarityBanner(t, rarity) {
   playBand(cfg.label, t.name, cfg.color, cfg.hold, rarity);
 }
 
-function showAcBanner() {
-  playBand('CARE+', '自动生效 · 已换机', '#00ff88', 2350, 'epic');
+function showAcBanner(left) {
+  const n = typeof left === 'number' ? left : 0;
+  playBand('CARE+', n > 0 ? `已换机 · 剩 ${n} 次` : '已换机 · 延保用尽', '#00ff88', 2350, 'epic');
 }
 
 function playBand(label, name, color, hold, tier) {
@@ -591,6 +595,48 @@ function playBand(label, name, color, hold, tier) {
     el.classList.add('out');
     setTimeout(() => el.remove(), 460);
   }, hold);
+}
+
+// 延保（CARE+）：上限随「本机历史最高品阶」解锁，升级必须玩家在折叠数为 0 时自己点
+function acTargetLevel() {
+  return acLevelFor(Math.max(bestStage, game.stage));
+}
+
+function updateAcUI() {
+  const btn = $('btnAC');
+  if (!btn) return;
+  const target = acTargetLevel();
+  const canUp = game.folds === 0 && !game.broken && !game.finished && target > game.acMax;
+  const left = game.acLeft;
+
+  btn.disabled = !canUp;
+  btn.classList.toggle('can-upgrade', canUp);
+  btn.classList.toggle('is-armed', !canUp && left > 0);
+  btn.classList.toggle('spent', left === 0);
+  btn.title = canUp
+    ? `本机最高到过 ${Math.max(bestStage, game.stage)} 阶，延保可升级到 ${target} 次`
+    : `本局还能自动换机 ${left} 次`;
+
+  const sub = btn.querySelector('b');
+  if (sub) sub.textContent = canUp ? `↑ 升 ${target} 次` : `续命 ×${left}`;
+
+  // 开局前把「本机历史最高」和升级规则摊开给玩家看；开局后收起，把空间还给日志
+  const note = $('careNote');
+  if (note) {
+    const best = Math.max(bestStage, game.stage);
+    const showNote = game.folds === 0 && !game.broken && !game.finished;
+    note.hidden = !showNote;
+    if (showNote) {
+      const cnBest = $('cnBest');
+      if (cnBest) cnBest.textContent = best > 0 ? `STAGE ${String(best).padStart(2, '0')}` : '暂无记录';
+      const lvTarget = acLevelFor(best);
+      note.querySelectorAll('.cn-rule i').forEach((el) => {
+        const lv = Number(el.dataset.lv);
+        el.classList.toggle('on', game.acMax >= lv);
+        el.classList.toggle('next', game.acMax < lv && lv <= lvTarget);
+      });
+    }
+  }
 }
 
 function updateUI() {
@@ -636,7 +682,6 @@ function updateUI() {
   const playable = !game.broken && !game.finished;
   $('btnFan').disabled = !playable || game.fanUsed >= FAN_MAX;
   $('btnSand').disabled = !playable || game.sandUsed >= SAND_MAX;
-  $('btnAC').disabled = true;   // 已改为自动生效，只做状态展示
   $('btnStop').disabled = !playable;
   const setBadge = (id, text) => {
     const b = $(id)?.querySelector('b');
@@ -644,10 +689,114 @@ function updateUI() {
   };
   setBadge('btnFan', `${FAN_MAX - game.fanUsed}`);
   setBadge('btnSand', `${SAND_MAX - game.sandUsed}`);
-  setBadge('btnAC', game.acUsed >= 1 ? '已用' : '待命');
+  updateAcUI();
 
   updateTraitsUI();
+  syncSwipeHint();
   phone.updateScreen(screenState());
+}
+
+// ================= 新手引导：折叠数回到 0 就出现（每台新机都会重新显示） =================
+let hintSuppressed = false;   // 拖拽时先让位；松手没折成再回来
+
+function syncSwipeHint() {
+  const el = $('swipeHint');
+  if (!el) return;
+  const show = game.folds === 0 && !game.broken && !game.finished && !hintSuppressed && !autoFolding;
+  el.classList.toggle('gone', !show);
+  el.setAttribute('aria-hidden', show ? 'false' : 'true');
+}
+
+// ================= 长按：自动连续折叠到报废 =================
+const HOLD_SLOP = 14;     // 手指抖超过这么多就当作拖拽，不算长按
+const AUTO_GAP = 540;     // 每次自动折叠之间的间隔
+
+let holdStartAt = 0;
+let holdTimer = 0;
+let holdPoint = { x: 0, y: 0 };
+let charging = false;     // 长按充能中（震动逐渐变强）
+let autoFolding = false;
+let autoTimer = 0;
+
+function setHoldProgress(p) {
+  const hint = $('swipeHint');
+  if (hint) hint.style.setProperty('--hold', p.toFixed(3));
+}
+
+function cancelHold() {
+  if (!charging) return;
+  charging = false;
+  clearTimeout(holdTimer);
+  holdTimer = 0;
+  const hint = $('swipeHint');
+  if (hint) {
+    hint.classList.remove('charging');
+    hint.style.removeProperty('--hold');
+  }
+}
+
+// 充能脉冲：越接近启动，单次越长、间隔越短——手感上是"蓄力"
+function holdTick() {
+  if (!charging) return;
+  const p = Math.min(1, (performance.now() - holdStartAt) / HOLD_MS);
+  setHoldProgress(p);
+  if (p >= 1) {
+    cancelHold();
+    startAutoFold();      // 启动瞬间不再补震动：那一下已经是最强的一次脉冲
+    return;
+  }
+  haptic([holdPulseMs(p)]);
+  holdTimer = setTimeout(holdTick, holdPulseGap(p));
+}
+
+function startHold(x, y) {
+  if (autoFolding || game.broken || game.finished) return;
+  holdPoint = { x, y };
+  holdStartAt = performance.now();
+  charging = true;
+  const hint = $('swipeHint');
+  if (hint) hint.classList.add('charging');
+  setHoldProgress(0);
+  // 第一下震动留个缓闸：正常拖拽掰弯不会白白挨一下震动
+  holdTimer = setTimeout(holdTick, HOLD_FIRST_DELAY);
+}
+
+function autoFoldStep() {
+  if (!autoFolding) return;
+  if (game.broken || game.finished) { stopAutoFold(); return; }
+  targetBend = FOLD_CLOSE * 0.9;            // 视觉上真的掰下去
+  setTimeout(() => {
+    if (!autoFolding) return;
+    targetBend = 0;
+    doFold(0.9);                            // 走正常的折叠流程：判定、音效、游戏内震动都在里面
+    if (game.broken || game.finished) { stopAutoFold(); return; }
+    autoTimer = setTimeout(autoFoldStep, AUTO_GAP);
+  }, 170);
+}
+
+function startAutoFold() {
+  if (autoFolding || game.broken || game.finished) return;
+  autoFolding = true;
+  hintSuppressed = true;
+  syncSwipeHint();
+  const chip = $('autoChip');
+  if (chip) chip.hidden = false;
+  sfx('up');
+  log('长按锁定：松手也会继续折，点一下屏幕停下。');
+  autoFoldStep();
+}
+
+function stopAutoFold() {
+  if (!autoFolding) return;
+  autoFolding = false;
+  clearTimeout(autoTimer);
+  autoTimer = 0;
+  targetBend = 0;
+  const chip = $('autoChip');
+  if (chip) chip.hidden = true;
+  hintSuppressed = false;
+  syncSwipeHint();
+  if (!game.broken && !game.finished) log('自动折叠已停。');
 }
 
 // ================= 交互：拖拽掰弯 =================
@@ -659,13 +808,20 @@ const FOLD_CLOSE = Math.PI / 2;   // 合到 180°（每块 90°）
 const BEND_BACK = 0.58;           // 反向掰的上限
 const FOLD_THRESHOLD = 0.34;      // 超过这个幅度松手算一次折叠
 
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+window.addEventListener('blur', () => cancelHold());
+
 canvas.addEventListener('pointerdown', (e) => {
+  // 自动折叠进行中：任意一次点击都算"停"
+  if (autoFolding) { stopAutoFold(); return; }
   if (game.broken || game.finished) return;
   dragging = true;
   dragStartX = e.clientX;
-  canvas.setPointerCapture?.(e.pointerId);
-  const h = $('hint');
-  if (h) h.classList.add('gone');
+  // 指针捕获对合成/陈旧 pointerId 会抛错，别让一次失败打断整条长按链路
+  try { canvas.setPointerCapture?.(e.pointerId); } catch (err) { /* 忽略 */ }
+  hintSuppressed = true;
+  syncSwipeHint();
+  startHold(e.clientX, e.clientY);
 });
 
 let lastSandTick = 0;
@@ -673,6 +829,11 @@ let lastBendSeen = 0;
 
 canvas.addEventListener('pointermove', (e) => {
   if (!dragging) return;
+  // 手一动就退出长按判定；充能期间不跟随拖拽，避免"长按"变成"误掰"
+  if (charging) {
+    if (Math.hypot(e.clientX - holdPoint.x, e.clientY - holdPoint.y) > HOLD_SLOP) cancelHold();
+    return;
+  }
   const dx = (e.clientX - dragStartX) / (window.innerWidth * 0.58);
   targetBend = dx >= 0
     ? Math.min(dx * FOLD_CLOSE, FOLD_CLOSE)
@@ -697,9 +858,15 @@ canvas.addEventListener('pointermove', (e) => {
 function releasePointer() {
   if (!dragging) return;
   dragging = false;
+  cancelHold();
+  if (autoFolding) { targetBend = 0; return; }   // 已经进入自动折叠，松手不再判定一次
   const strength = Math.abs(bend);
   if (strength >= FOLD_THRESHOLD) {
     doFold(strength);
+  } else {
+    // 没掰够：指引重新出来
+    hintSuppressed = false;
+    syncSwipeHint();
   }
   targetBend = 0;
 }
@@ -709,17 +876,7 @@ canvas.addEventListener('pointercancel', releasePointer);
 canvas.addEventListener('pointerleave', releasePointer);
 
 // ================= 游戏动作 =================
-let firstFoldDone = false;
-
 function doFold(strength) {
-  if (!firstFoldDone) {
-    firstFoldDone = true;
-    const sh = $('swipeHint');
-    if (sh) {
-      sh.classList.add('gone');
-      setTimeout(() => { sh.style.display = 'none'; }, 600);
-    }
-  }
   sfx('fold');
   if (game.sandUsed > 0) {
     // 铰链里残留沙粒：折叠时轻微的沙涩感
@@ -758,9 +915,11 @@ function doFold(strength) {
     burstShards(0x00ff88, 70);
     shakeCamera(0.035);
     setTimeout(() => triggerGlow(0x00ff88, 1.2), 320);
-    showAcBanner();
+    showAcBanner(r.left);
     log(r.text);
-    log('这一张延保已经用掉了。下次再裂，就是 7998 元。');
+    log(r.left > 0
+      ? `这台机器还能再保 ${r.left} 次。下次再裂，就是 7998 元。`
+      : '这一次延保也用完了。下次再裂，就是 7998 元。');
   } else if (r.result === 'guarded') {
     log(strength > FOLD_THRESHOLD ? '硬扛下来了。铰链再也合不严。' : '');
   } else {
@@ -788,10 +947,24 @@ $('btnSand').addEventListener('click', () => {
   res.gained.forEach((t) => setTimeout(() => celebrateTrait(t), 220));
   updateUI();
 });
-// 延保已自动生效，按钮只展示状态
-$('btnAC').addEventListener('click', (e) => e.preventDefault());
+// 延保：折叠数为 0 时点它升级「本局最多能续命几次」；局内自动生效，不需要手动开
+$('btnAC').addEventListener('click', () => {
+  if (game.folds !== 0 || game.broken || game.finished) return;
+  const up = game.upgradeAc(acTargetLevel());
+  if (!up) return;
+  saveAcMax(up.to);
+  sfx('up');
+  setTimeout(() => sfx('legendary'), 150);
+  haptic([30, 50, 30, 50, 90]);
+  triggerGlow(0xffb020, 1.3);
+  burstShards(0xffb020, 60);
+  playBand('CARE+', `延保升级 · ${up.to} 次`, '#ffb020', 1900, 'epic');
+  log(`延保升级成功：这台机器最多能续命 ${up.to} 次（原本 ${up.from} 次）。`);
+  updateUI();
+});
 
 $('btnStop').addEventListener('click', () => {
+  stopAutoFold();
   if (!game.stop()) return;
   log(`你把手机收回盒子里。${game.folds} 次折叠，到此为止。`);
   updateUI();
@@ -860,7 +1033,8 @@ $('closeBook').addEventListener('click', () => { $('book').hidden = true; });
 
 // ================= 成就卡片 ==================
 function showCard() {
-  recordRun(game, game.traits.some((id) => TRAIT_MAP[id].rarity === 'legendary'));
+  const ach = recordRun(game, game.traits.some((id) => TRAIT_MAP[id].rarity === 'legendary'));
+  bestStage = ach.bestStage;   // 本机最高品阶：延保能升级到几次看它
   const c = makeCard({
     stage: game.stage,
     stageName: game.stageName,
@@ -882,6 +1056,7 @@ function showCard() {
 }
 
 $('closeCard').addEventListener('click', () => {
+  stopAutoFold();
   $('cardModal').hidden = true;
   game.reset();
   logs = [];
@@ -891,6 +1066,7 @@ $('closeCard').addEventListener('click', () => {
   log('按住机身，向两侧掰。');
   bend = 0;
   targetBend = 0;
+  hintSuppressed = false;   // 折叠数归 0，滑动手势指引重新出现
   phone.setBend(0);
   if (shardPoints) {
     shardPoints.visible = false;

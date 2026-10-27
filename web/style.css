@@ -219,38 +219,180 @@ html, body {
 .book-trait .bt-desc { font-size: 10px; color: var(--dim); margin-top: 3px; line-height: 1.45; }
 .book-trait .bt-count { font-size: 9.5px; color: var(--dim); margin-top: 2px; opacity: .8; }
 
-/* 新手引导 */
+/* 新手引导：两行手势胶囊
+   上行演示「向右滑动」，下行演示「长按自动折叠」；长按充能时整块会随进度变亮 */
 .swipe-hint {
-  position: fixed; left: 50%; bottom: calc(262px + env(safe-area-inset-bottom));
+  position: fixed; left: 50%; bottom: calc(258px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(0);
+  z-index: 16; pointer-events: none;
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 12px 18px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(20,25,33,.88), rgba(8,10,14,.94));
+  border: 1px solid rgba(0,255,136,.16);
+  box-shadow:
+    0 12px 36px -16px rgba(0,0,0,.95),
+    0 0 34px -14px rgba(0,255,136,.5),
+    inset 0 1px 0 rgba(255,255,255,.08);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  transition: opacity .5s ease, transform .5s cubic-bezier(.2,.9,.3,1), border-color .2s, box-shadow .2s;
+}
+.swipe-hint.gone { opacity: 0; transform: translateX(-50%) translateY(12px) scale(.94); }
+
+.sh-step { display: flex; align-items: center; gap: 11px; position: relative; }
+.sh-step + .sh-step {
+  padding-top: 9px;
+  border-top: 1px solid rgba(255,255,255,.07);
+}
+
+/* 长按充能：底光加亮，圆环随进度灌满 */
+.swipe-hint.charging {
+  border-color: rgba(0,255,136,.55);
+  box-shadow:
+    0 12px 36px -16px rgba(0,0,0,.95),
+    0 0 52px -10px rgba(0,255,136,.9),
+    inset 0 1px 0 rgba(255,255,255,.14);
+}
+.swipe-hint.charging .sh-ring::after {
+  animation: none;
+  transform: scale(calc(.15 + var(--hold, 0) * .95));
+  opacity: calc(.32 + var(--hold, 0) * .68);
+}
+
+/* 呼吸底光：让胶囊在暗背景上自己会亮 */
+.swipe-hint::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: inherit;
+  background: radial-gradient(120% 150% at 18% 50%, rgba(0,255,136,.16), transparent 62%);
+  animation: shBreath 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes shBreath {
+  0%, 100% { opacity: .4; }
+  50%      { opacity: 1; }
+}
+
+/* 轨道：一条细发丝线 + 光点 */
+.sh-lane {
+  position: relative; flex: none;
+  --lane: 68px;
+  width: var(--lane); height: 12px;
+}
+.sh-lane::before {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 50%; height: 1.5px;
+  transform: translateY(-50%); border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.26));
+}
+.sh-dot {
+  position: absolute; top: 50%; left: 0;
+  width: 9px; height: 9px; margin-top: -4.5px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #d8ffe9, #00ff88 62%, #00c46a);
+  box-shadow: 0 0 12px rgba(0,255,136,.95), 0 0 30px rgba(0,255,136,.45);
+  animation: shDot 2.3s cubic-bezier(.36,.02,.24,1) infinite;
+}
+/* 拖尾：光点后面那道渐隐的绿线，方向一目了然 */
+.sh-dot::after {
+  content: '';
+  position: absolute; right: 100%; top: 50%;
+  width: 30px; height: 2px; margin-top: -1px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0,255,136,.75));
+}
+@keyframes shDot {
+  0%   { left: 0; opacity: 0; transform: scale(.55); }
+  14%  { opacity: 1; transform: scale(1); }
+  76%  { left: calc(var(--lane, 68px) - 9px); opacity: 1; transform: scale(1); }
+  90%  { left: calc(var(--lane, 68px) - 9px); opacity: 0; transform: scale(.6); }
+  100% { left: 0; opacity: 0; transform: scale(.55); }
+}
+
+/* 箭头：逐个点亮，像光点穿过去 */
+.sh-chev {
+  display: flex; align-items: center; gap: 0;
+  flex: none; margin-left: -3px; position: relative;
+}
+.sh-chev i {
+  font-style: normal; font-size: 16px; line-height: 1;
+  color: var(--green); opacity: .2;
+  animation: shChev 2.3s ease-in-out infinite;
+}
+.sh-chev i:nth-child(1) { animation-delay: .52s; }
+.sh-chev i:nth-child(2) { animation-delay: .66s; }
+.sh-chev i:nth-child(3) { animation-delay: .80s; }
+@keyframes shChev {
+  0%, 100% { opacity: .16; transform: translateX(0); }
+  18%      { opacity: 1;   transform: translateX(2px); }
+  42%      { opacity: .16; transform: translateX(0); }
+}
+
+.sh-txt {
+  display: flex; flex-direction: column; gap: 3px;
+  position: relative;
+  border-left: 1px solid rgba(255,255,255,.10);
+  padding: 1px 0 1px 11px;
+  line-height: 1.15;
+}
+.sh-txt b {
+  font-size: 13px; font-weight: 700; letter-spacing: .16em;
+  color: #eaf6ef; text-shadow: 0 1px 10px rgba(0,0,0,.9);
+  white-space: nowrap;
+}
+.sh-txt em {
+  font-style: normal; font-size: 10px; letter-spacing: .1em;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+/* 长按充能环：静止时内芯一呼一吸，按住时按进度灌满 */
+.sh-ring {
+  position: relative; flex: none;
+  width: 17px; height: 17px; border-radius: 50%;
+  border: 1.5px solid rgba(0,255,136,.30);
+  box-shadow: inset 0 0 8px -3px rgba(0,255,136,.8);
+}
+.sh-ring::before {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%;
+  border: 1px solid rgba(0,255,136,.14);
+}
+.sh-ring::after {
+  content: ''; position: absolute; inset: 2.5px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #d8ffe9, #00ff88 68%, #00c46a);
+  box-shadow: 0 0 12px rgba(0,255,136,.9);
+  transform: scale(.15); opacity: .35;
+  animation: shRingFill 2.4s ease-in-out infinite;
+}
+@keyframes shRingFill {
+  0%   { transform: scale(.15); opacity: .35; }
+  55%  { transform: scale(1);   opacity: 1; }
+  75%  { transform: scale(1);   opacity: .9; }
+  100% { transform: scale(.15); opacity: .35; }
+}
+
+/* 自动折叠进行中：只留一条状态胶囊，告诉玩家怎么停 */
+.auto-chip {
+  position: fixed; left: 50%; bottom: calc(258px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
-  text-align: center; z-index: 16; pointer-events: none;
-  padding: 9px 18px 11px;
-  background: rgba(8,10,14,.82);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 13px;
+  z-index: 16; pointer-events: none;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 999px;
+  background: rgba(10,14,18,.9);
+  border: 1px solid rgba(255,176,32,.45);
+  box-shadow: 0 10px 30px -16px rgba(0,0,0,.9), 0 0 30px -12px rgba(255,176,32,.85);
+  font-size: 11px; letter-spacing: .12em; color: #ffe6b8;
   backdrop-filter: blur(10px);
-  transition: opacity .45s, transform .45s;
+  -webkit-backdrop-filter: blur(10px);
+  animation: cnIn .35s cubic-bezier(.2,.9,.3,1) both;
 }
-.swipe-hint.gone { opacity: 0; transform: translateX(-50%) translateY(8px); }
-.swipe-track {
-  width: 128px; height: 3px; margin: 0 auto 11px;
-  background: rgba(255,255,255,.13); border-radius: 2px; position: relative;
+.auto-chip[hidden] { display: none; }
+.auto-chip i {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #ffb020; box-shadow: 0 0 10px rgba(255,176,32,.95);
+  animation: acBlink 1s ease-in-out infinite;
 }
-.swipe-dot {
-  position: absolute; top: -4px; left: 0;
-  width: 11px; height: 11px; border-radius: 50%;
-  background: var(--green); box-shadow: 0 0 16px rgba(0,255,136,.9);
-  animation: swipeMove 1.7s cubic-bezier(.4,0,.3,1) infinite;
-}
-@keyframes swipeMove {
-  0%   { left: 0; opacity: 0; }
-  18%  { opacity: 1; }
-  82%  { opacity: 1; }
-  100% { left: 117px; opacity: 0; }
-}
-.swipe-text {
-  font-size: 12px; color: var(--dim); letter-spacing: .12em;
-  text-shadow: 0 1px 10px rgba(0,0,0,.9);
+@keyframes acBlink {
+  0%, 100% { opacity: .35; transform: scale(.85); }
+  50%      { opacity: 1;   transform: scale(1.1); }
 }
 
 
@@ -409,15 +551,22 @@ html, body {
 }
 
 .stage-main { flex: 1; min-width: 0; }
-.stage-row { display: flex; align-items: baseline; gap: 10px; }
+.stage-row { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
 .stage-row h1 {
   font-size: 21px; font-weight: 700; letter-spacing: .05em;
   color: var(--sc, var(--fg));
-  text-shadow: 0 0 22px color-mix(in srgb, var(--sc, transparent) 55%, transparent);
+  /* 外发光靠 text-shadow 画在字形外沿，容器一旦 overflow:hidden 就会被裁成方块，
+     所以这里不裁剪；品阶名长度固定，用字号自适应兜住窄屏，不靠省略号 */
+  text-shadow:
+    0 0 6px color-mix(in srgb, var(--sc, #fff) 78%, transparent),
+    0 0 18px color-mix(in srgb, var(--sc, #fff) 42%, transparent),
+    0 0 34px color-mix(in srgb, var(--sc, #fff) 22%, transparent);
+  overflow: visible; text-overflow: clip;
+  flex: 0 1 auto; min-width: 0;
   transition: color .4s;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.stage-row h1.dead { color: #ff4d5e; text-shadow: 0 0 24px rgba(255,77,94,.6); }
+.stage-row h1.dead { color: #ff4d5e; text-shadow: 0 0 24px rgba(255,77,94,.6); animation: none; }
 #stageSub {
   font-size: 10px; letter-spacing: .18em; color: var(--dim);
   flex: none; opacity: .9;
@@ -533,6 +682,99 @@ body::after {
   background: linear-gradient(180deg, rgba(40, 46, 56, .95), rgba(20, 24, 30, .98)) !important;
 }
 
+/* ---- 延保：折叠数 0 时可点升级续航上限；局内只展示剩余续命次数 ---- */
+/* 禁用态不整块发灰：延保是常驻状态位，必须一眼能读出还剩几次续命 */
+#btnAC:disabled { opacity: .92; cursor: default; }
+#btnAC b { letter-spacing: .04em; }
+#btnAC.is-armed {
+  border-color: rgba(0, 255, 136, .26) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 22px -14px rgba(0,255,136,.9);
+}
+#btnAC.is-armed b { color: rgba(0, 255, 136, .92); }
+#btnAC.spent { opacity: .55; }
+#btnAC.spent b { color: rgba(255,255,255,.38); }
+
+/* 可升级：金色高亮 + 左右晃动 + 缩放脉冲，明确喊用户来点 */
+#btnAC.can-upgrade {
+  opacity: 1; color: #fff8ea;
+  border-color: rgba(255, 176, 32, .62) !important;
+  background: linear-gradient(180deg, rgba(255,176,32,.18), rgba(120,74,8,.12)) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,176,32,.16),
+    0 10px 30px -16px rgba(255,176,32,.95),
+    inset 0 1px 0 rgba(255,255,255,.16);
+  animation: acWobble 1.9s cubic-bezier(.36,.06,.3,.98) infinite !important;
+  transform-origin: 50% 80%;
+  will-change: transform;
+}
+#btnAC.can-upgrade b { color: #ffcf6b; font-weight: 700; }
+#btnAC.can-upgrade::after {
+  content: '';
+  position: absolute; inset: -2px; border-radius: 13px;
+  border: 1px solid rgba(255,176,32,.5);
+  animation: acRing 1.9s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes acWobble {
+  0%, 54%, 100% { transform: rotate(0deg) scale(1); }
+  58% { transform: rotate(-2.4deg) scale(1.045); }
+  63% { transform: rotate(2.2deg) scale(1.06); }
+  68% { transform: rotate(-1.5deg) scale(1.035); }
+  73% { transform: rotate(.9deg) scale(1.015); }
+  78% { transform: rotate(0deg) scale(1); }
+  86% { transform: rotate(0deg) scale(1.045); }
+  93% { transform: rotate(0deg) scale(1); }
+}
+@keyframes acRing {
+  0%   { opacity: .8; transform: scale(.99); }
+  70%  { opacity: 0;  transform: scale(1.11); }
+  100% { opacity: 0;  transform: scale(1.11); }
+}
+
+/* ---- 延保档案：开局前展示「本机历史最高品阶」与升级规则 ---- */
+.care-note {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px;
+  padding: 8px 12px; border-radius: 11px;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+  border: 1px solid rgba(255,255,255,.07);
+  font-size: 10px; letter-spacing: .08em; color: var(--dim);
+  animation: cnIn .45s cubic-bezier(.2,.9,.3,1) both;
+}
+.care-note[hidden] { display: none; }
+@keyframes cnIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cn-head { flex: none; display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.cn-head b {
+  font-size: 12px; font-weight: 700; letter-spacing: .12em;
+  color: #dfe6ee; text-shadow: 0 0 12px rgba(255,255,255,.18);
+}
+.cn-rule { display: flex; gap: 5px; margin-left: auto; }
+.cn-rule i {
+  font-style: normal; padding: 3px 7px; border-radius: 7px;
+  border: 1px solid rgba(255,255,255,.09);
+  background: rgba(255,255,255,.02);
+  color: rgba(255,255,255,.28);
+  transition: color .25s, border-color .25s, background .25s;
+}
+.cn-rule i.on {
+  color: rgba(0,255,136,.95);
+  border-color: rgba(0,255,136,.35);
+  background: rgba(0,255,136,.10);
+  box-shadow: 0 0 14px -8px rgba(0,255,136,.95);
+}
+.cn-rule i.next {
+  color: #ffcf6b;
+  border-color: rgba(255,176,32,.68);
+  background: rgba(255,176,32,.14);
+  animation: cnNext 1.7s ease-in-out infinite;
+}
+@keyframes cnNext {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,176,32,0); }
+  50%      { box-shadow: 0 0 15px -1px rgba(255,176,32,.8); }
+}
+
 /* ---- 成就卡图片：加冷色描边，避免直接贴在黑上 ---- */
 .sheet img {
   border: 1px solid rgba(255, 255, 255, .10);
@@ -543,9 +785,6 @@ body::after {
 /* ================= 常驻循环动画 ================= */
 /* 全局激励量：折叠时为 0~1，由 JS 每帧写入，用来同步放大所有呼吸效果 */
 :root { --excite: 0; }
-
-
-}
 
 /* 品阶徽章：辉光呼吸 */
 .stage-badge {
@@ -565,13 +804,25 @@ body::after {
   50%      { opacity: 1; }
 }
 
-/* 品阶名：极缓慢的光晕明暗 */
-.stage-row h1 {
+/* 品阶名：外发光极缓慢呼吸。
+   不用 filter: brightness —— filter 会把元素塞进独立光栅层并裁到边框盒，
+   外发光又会变成方块；直接让 text-shadow 的模糊半径自己呼吸最干净 */
+.stage-row h1:not(.dead) {
   animation: nameGlow 3.4s ease-in-out infinite;
 }
 @keyframes nameGlow {
-  0%, 100% { filter: brightness(1); }
-  50%      { filter: brightness(1.18); }
+  0%, 100% {
+    text-shadow:
+      0 0 5px color-mix(in srgb, var(--sc, #fff) 68%, transparent),
+      0 0 15px color-mix(in srgb, var(--sc, #fff) 34%, transparent),
+      0 0 30px color-mix(in srgb, var(--sc, #fff) 16%, transparent);
+  }
+  50% {
+    text-shadow:
+      0 0 8px color-mix(in srgb, var(--sc, #fff) 90%, transparent),
+      0 0 22px color-mix(in srgb, var(--sc, #fff) 50%, transparent),
+      0 0 44px color-mix(in srgb, var(--sc, #fff) 28%, transparent);
+  }
 }
 
 /* 底部按钮：待命时的细微呼吸，暗示可操作 */
@@ -608,9 +859,13 @@ body::after {
 /* 减少动画偏好：尊重系统设置 */
 @media (prefers-reduced-motion: reduce) {
   body::before, .stage-badge, .stage-bar i.on, .stage-row h1,
-  .items button:not(:disabled), .sheet img, .ring-fg {
+  .items button:not(:disabled), .sheet img, .ring-fg,
+  #btnAC.can-upgrade, #btnAC.can-upgrade::after,
+  .swipe-hint::before, .sh-dot, .sh-chev i, .cn-rule i.next,
+  .sh-ring::after, .auto-chip i, .auto-chip {
     animation: none !important;
   }
+  #btnAC.can-upgrade { transform: none !important; }
 }
 
 
@@ -677,4 +932,20 @@ body::after {
   width: 100%; height: 100%;
   opacity: calc(.55 + var(--excite, 0) * .40);
   transition: opacity .3s ease;
+}
+
+/* ================= 窄屏 / 矮屏适配 ================= */
+/* 品阶名不再用省略号裁剪（会裁掉外发光），改用字号与字距自适应窄屏，
+   保证 7 个字的长名（传奇·一掰就碎）与右侧 STAGE 标签仍能并排 */
+@media (max-width: 430px) {
+  .stage-row { gap: 8px; }
+  .stage-row h1 { font-size: 18px; letter-spacing: .01em; }
+  #stageSub { font-size: 9px; letter-spacing: .12em; }
+  .swipe-hint { padding: 9px 15px 9px 13px; gap: 9px; }
+  .sh-lane { --lane: 54px; }
+  .sh-txt b { font-size: 12px; letter-spacing: .1em; }
+}
+
+@media (max-height: 700px) {
+  .swipe-hint { bottom: calc(232px + env(safe-area-inset-bottom)); }
 }

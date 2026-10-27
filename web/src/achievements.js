@@ -1,7 +1,7 @@
 // 成就手册：存浏览器本地
 const KEY = 'duofold.ach.v1';
 
-const EMPTY = { traits: {}, bestStage: 0, bestFolds: 0, runs: 0, legendary: 0, clears: 0 };
+const EMPTY = { traits: {}, bestStage: 0, bestFolds: 0, runs: 0, legendary: 0, clears: 0, acMax: 1 };
 
 export function loadAch() {
   try {
@@ -16,6 +16,19 @@ export function loadAch() {
 
 export function saveAch(a) {
   try { localStorage.setItem(KEY, JSON.stringify(a)); } catch (e) { /* 隐私模式下忽略 */ }
+}
+
+/** 延保上限：跨局保留的进度，读档时兜底到 1~4 */
+export function loadAcMax() {
+  const v = Math.floor(loadAch().acMax || 1);
+  return Math.min(4, Math.max(1, v));
+}
+
+export function saveAcMax(n) {
+  const a = loadAch();
+  a.acMax = Math.min(4, Math.max(1, Math.floor(n || 1)));
+  saveAch(a);
+  return a.acMax;
 }
 
 /** 记录一局结束 */
