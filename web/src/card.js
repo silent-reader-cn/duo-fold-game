@@ -169,17 +169,25 @@ function rr(ctx, x, y, w, h, r) {
 
 // 稀有度皮肤：canvas 读不到 CSS 变量，这里的颜色与 style.css 的 .book-trait.r-* 一一对应
 // ink=文字/圆点主色（提亮版） l1..l2=描边渐变 fill=底色+辉光 lw=描边粗细 glow=辉光半径
+// 渐变端点都收在同一个色相里（不跑青、不跑洋红），贴着 RARITY[].color 这个「代表色」
 const RSKIN = {
-  common:    { ink: '#cbd2dc', l1: '#b9c2d0', l2: '#8b93a4', fill: [203, 210, 220], lw: 1.6, glow: 0 },
-  rare:      { ink: '#7cc8ff', l1: '#8fd8ff', l2: '#3a8aff', fill: [74, 163, 255],  lw: 2.0, glow: 15 },
-  epic:      { ink: '#cf9bff', l1: '#d79dff', l2: '#ff6ed7', fill: [183, 107, 255], lw: 2.4, glow: 24 },
-  legendary: { ink: '#ffd15c', l1: '#ffe89a', l2: '#ff9628', fill: [255, 176, 32],  lw: 3.0, glow: 34 },
+  common:    { ink: '#cbd2dc', l1: '#b9c2d0', l2: '#7d8595', fill: [154, 160, 168], lw: 1.6, glow: 0,
+               bg1: [23, 27, 33], mid: [13, 16, 20], bg2: [7, 9, 12] },
+  rare:      { ink: '#7cc8ff', l1: '#9ad8ff', l2: '#2f7ff0', fill: [74, 163, 255], lw: 2.0, glow: 15,
+               bg1: [24, 38, 56], mid: [12, 18, 28], bg2: [6, 9, 15] },
+  epic:      { ink: '#cf9bff', l1: '#d9a6ff', l2: '#7f3fd8', fill: [183, 107, 255], lw: 2.4, glow: 24,
+               bg1: [33, 25, 46], mid: [16, 12, 25], bg2: [7, 6, 12] },
+  legendary: { ink: '#ffd15c', l1: '#ffe08a', l2: '#e08a15', fill: [255, 176, 32], lw: 3.0, glow: 34,
+               bg1: [39, 32, 18], mid: [18, 14, 9], bg2: [8, 7, 4] },
 };
-// 碎裂 / 无词条时也得有自己的一套，别让外框掉成灰白
-const BROKEN_SKIN = { ink: '#ff9aa4', l1: '#ffc2c8', l2: '#e03b4a', fill: [255, 77, 94], lw: 2.4, glow: 22 };
-const CLEAN_SKIN  = { ink: '#7dffbd', l1: '#a6ffd4', l2: '#00c46a', fill: [0, 255, 136], lw: 2.0, glow: 16 };
+// 碎裂 / 无词条时也得有自己的一套，别让外框和整卡底色掉成灰白
+const BROKEN_SKIN = { ink: '#ff9aa4', l1: '#ffc2c8', l2: '#d0323f', fill: [255, 77, 94], lw: 2.4, glow: 22,
+                      bg1: [38, 20, 24], mid: [19, 11, 13], bg2: [8, 5, 6] };
+const CLEAN_SKIN  = { ink: '#7dffbd', l1: '#a6ffd4', l2: '#00b862', fill: [0, 255, 136], lw: 2.0, glow: 16,
+                      bg1: [19, 33, 27], mid: [10, 18, 15], bg2: [5, 9, 8] };
 const RAR_DESC = { legendary: 0, epic: 1, rare: 2, common: 3 };
 const rgba = ([r, g, b], a) => `rgba(${r},${g},${b},${a})`;
+const rgbStr = ([r, g, b]) => `rgb(${r},${g},${b})`;
 
 /** 综合评级：品阶 + 折叠数 + 稀有词条权重 */
 function grade(st) {
@@ -217,19 +225,21 @@ export function makeCard(st) {
   for (const t of traits) {
     if (!topRarity || order[t.rarity] > order[topRarity]) topRarity = t.rarity;
   }
+  // 代表色：外框、刻度、页眉、整卡底色全部由它派生，四档不再是同一张蓝黑底
   const accent = st.broken ? '#ff4d5e' : topRarity ? RARITY[topRarity].color : '#00ff88';
+  const skinMain = st.broken ? BROKEN_SKIN : topRarity ? RSKIN[topRarity] : CLEAN_SKIN;
   const gr = grade(st);
 
-  // ================= 底色 =================
+  // ================= 底色（整卡染色）=================
   const bg = ctx.createLinearGradient(0, 0, W * 0.35, H);
-  bg.addColorStop(0, '#101419');
-  bg.addColorStop(0.5, '#0a0d11');
-  bg.addColorStop(1, '#05070a');
+  bg.addColorStop(0, rgbStr(skinMain.bg1));
+  bg.addColorStop(0.5, rgbStr(skinMain.mid));
+  bg.addColorStop(1, rgbStr(skinMain.bg2));
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
   // 技术网格底纹
-  ctx.strokeStyle = 'rgba(255,255,255,.028)';
+  ctx.strokeStyle = 'rgba(255,255,255,.022)';
   ctx.lineWidth = 1;
   for (let x = 0; x <= W; x += 54) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
@@ -240,8 +250,8 @@ export function makeCard(st) {
 
   // 主色光晕
   const halo = ctx.createRadialGradient(W / 2, 620, 40, W / 2, 660, 660);
-  halo.addColorStop(0, accent + '44');
-  halo.addColorStop(0.45, accent + '12');
+  halo.addColorStop(0, rgba(skinMain.fill, 0.30));
+  halo.addColorStop(0.45, rgba(skinMain.fill, 0.11));
   halo.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = halo;
   ctx.fillRect(0, 0, W, H);
@@ -258,10 +268,9 @@ export function makeCard(st) {
   const m = 68;
 
   // 外框（双线）：描边走「最高稀有度」的渐变，越稀有越粗越亮，还带一圈外发光
-  const frameSkin = st.broken ? BROKEN_SKIN : topRarity ? RSKIN[topRarity] : CLEAN_SKIN;
+  const frameSkin = skinMain;
   // 花纹分档：传说=古典（回纹/花带/徽记），史诗=几何菱格，稀有=双线，普通=素面
-  const ORN_BY_RARITY = { legendary: 'classic', epic: 'geo', rare: 'line', common: 'none' };
-  const orn = topRarity ? ORN_BY_RARITY[topRarity] : 'none';
+  const orn = topRarity ? { legendary: 'classic', epic: 'geo', rare: 'line', common: 'none' }[topRarity] : 'none';
 
   if (orn === 'classic' || orn === 'geo') patternField(ctx, W, H, frameSkin, orn);
   const fg = ctx.createLinearGradient(24, 24, W - 24, H - 24);
@@ -297,7 +306,7 @@ export function makeCard(st) {
 
   // ================= 报告页眉 =================
   ctx.textAlign = 'left';
-  ctx.fillStyle = accent;
+  ctx.fillStyle = skinMain.ink;
   ctx.font = `700 26px ${CJK}`;
   ctx.fillText('DEVICE INSPECTION REPORT', m, 106);
 
@@ -361,7 +370,8 @@ export function makeCard(st) {
   ctx.fillStyle = 'rgba(140,148,162,.75)';
   ctx.font = `400 19px ${CJK}`;
   ctx.fillText(t('card.gradeLabel'), m, badgeY + 32);
-  ctx.fillStyle = gr.color;
+  // 品阶名跟卡面代表色一致；评级色只留在右边的 GRADE 徽章里，两个色轴不打架
+  ctx.fillStyle = skinMain.ink;
   ctx.font = `700 30px ${CJK}`;
   ctx.fillText(st.stageName, m, badgeY + 74);
 
