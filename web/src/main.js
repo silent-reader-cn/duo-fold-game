@@ -358,14 +358,22 @@ function log(msg) {
 }
 
 const traitBar = $('traits');
+const RAR_ORDER = { legendary: 0, epic: 1, rare: 2, common: 3 };
+
 function updateTraitsUI() {
-  traitBar.innerHTML = game.traits
+  // 高稀有度排在前面，视觉上先看到珍贵的那几个
+  const sorted = [...game.traits].sort(
+    (a, b) => RAR_ORDER[TRAIT_MAP[a].rarity] - RAR_ORDER[TRAIT_MAP[b].rarity]
+  );
+  traitBar.innerHTML = sorted
     .map((id) => {
       const t = TRAIT_MAP[id];
       const r = RARITY[t.rarity];
-      return `<span class="trait" style="color:${r.color}">${t.name}</span>`;
+      return `<span class="trait r-${t.rarity}" style="color:${r.color}"><i></i>${t.name}</span>`;
     })
     .join('');
+  const cnt = $('traitCount');
+  if (cnt) cnt.textContent = `词条 ${game.traits.length} / 9`;
 }
 
 const GLOW_COLOR = {
@@ -472,7 +480,7 @@ function playBand(label, name, color, hold, tier) {
   setTimeout(() => {
     el.classList.remove('in');
     el.classList.add('out');
-    setTimeout(() => el.remove(), 760);
+    setTimeout(() => el.remove(), 460);
   }, hold);
 }
 
@@ -481,6 +489,28 @@ function updateUI() {
   $('stageName').textContent = game.stageName;
   $('stageName').classList.toggle('dead', game.broken);
   $('stageSub').textContent = `STAGE ${String(game.stage).padStart(2, '0')} / ${String(MAX_STAGE).padStart(2, '0')}`;
+
+  // 品阶身份牌：阶数徽章 + 品阶色 + 10 格进度
+  const badge = $('stageBadge');
+  if (badge) badge.textContent = String(game.stage).padStart(2, '0');
+  const stageColor = game.broken ? '#ff4d5e'
+    : game.stage >= 9 ? '#ff4d5e'
+    : game.stage >= 7 ? '#ffb020'
+    : game.stage >= 5 ? '#b76bff'
+    : game.stage >= 3 ? '#4aa3ff'
+    : '#00ff88';
+  const tag = document.querySelector('.stagetag');
+  if (tag) tag.style.setProperty('--sc', stageColor);
+
+  const bar = $('stageBar');
+  if (bar && bar.children.length !== MAX_STAGE) {
+    bar.innerHTML = Array.from({ length: MAX_STAGE }, () => '<i></i>').join('');
+  }
+  if (bar) {
+    [...bar.children].forEach((seg, i) => {
+      seg.classList.toggle('on', i < game.stage);
+    });
+  }
 
   const riskEl = $('risk');
   if (game.broken || game.finished) {

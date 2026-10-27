@@ -11,6 +11,7 @@
   <canvas id="scene"></canvas>
 
   <div class="ui">
+   <div class="hud-panel">
     <header class="hud">
       <div class="brand">iPHONE DUO<em>折叠耐力测试</em></div>
       <div class="hud-right">
@@ -20,11 +21,23 @@
     </header>
 
     <div class="stagetag">
-      <h1 id="stageName">全新未拆封</h1>
-      <div id="stageSub">STAGE 01 / 10</div>
+      <div class="stage-badge"><span id="stageBadge">01</span></div>
+      <div class="stage-main">
+        <div class="stage-row">
+          <h1 id="stageName">全新未拆封</h1>
+          <div id="stageSub">STAGE 01 / 10</div>
+        </div>
+        <div class="stage-bar" id="stageBar"></div>
+      </div>
     </div>
 
-    <div class="traits" id="traits"></div>
+    <div class="traits-wrap">
+      <div class="traits-head">
+        <span id="traitCount">词条 0 / 9</span>
+      </div>
+      <div class="traits" id="traits"></div>
+    </div>
+   </div>
     <div class="swipe-hint" id="swipeHint">
       <div class="swipe-track"><i class="swipe-dot"></i></div>
       <div class="swipe-text">向右滑动 · 第一次折叠</div>
