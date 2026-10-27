@@ -1,0 +1,49 @@
+name: Deploy web build to GitHub Pages
+
+# 游戏在 web/ 子目录，而 Pages 只能发布仓库根或 /docs，
+# 所以这里把 web/ 单独作为静态产物上传，站点地址固定为
+# https://<owner>.github.io/<repo>/
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只跑一个发布，新的推上来就取消排队中的那次
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # enablement: 首次部署时自动把仓库 Pages 打开（Source = GitHub Actions）
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      # 只上传 web/：Godot 存档工程、docs、tools 都不进站点
+      - name: Upload web/ as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
