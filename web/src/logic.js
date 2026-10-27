@@ -186,11 +186,10 @@ export class Game {
       if (acLeft > 0) {
         this.acUsed += 1;
         this.acShield = false;
-        this.stage = Math.max(1, this.stage - 1);
         return {
           result: 'ac',
           left: (this.acMax || 1) - this.acUsed,
-          text: '屏幕窜出一道绿线——延保自动生效，直接换机。代价是标签降一阶。',
+          text: '屏幕窜出一道绿线——延保自动生效，直接换机。品阶不倒扣。',
         };
       }
       this.broken = true;

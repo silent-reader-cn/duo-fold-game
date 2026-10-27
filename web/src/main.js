@@ -714,7 +714,7 @@ function syncSwipeHint() {
   el.setAttribute('aria-hidden', show ? 'false' : 'true');
 }
 
-// ================= 长按：自动连续折叠到报废 =================
+// ================= 长按：按住维持自动连续折叠，松手即停 =================
 const HOLD_SLOP = 14;     // 手指抖超过这么多就当作拖拽，不算长按
 const AUTO_GAP = 540;     // 每次自动折叠之间的间隔
 
@@ -724,6 +724,7 @@ let holdPoint = { x: 0, y: 0 };
 let charging = false;     // 长按充能中（震动逐渐变强）
 let autoFolding = false;
 let autoTimer = 0;
+let activePointerId = null;   // 正在维持长按/自动折叠的手指，其它触点一律不接管
 
 function setHoldProgress(p) {
   const hint = $('swipeHint');
@@ -768,11 +769,14 @@ function startHold(x, y) {
   holdTimer = setTimeout(holdTick, HOLD_FIRST_DELAY);
 }
 
+let foldSwingTimer = 0;   // 每一下自动折叠的"掰下去"动画计时
+
 function autoFoldStep() {
   if (!autoFolding) return;
   if (game.broken || game.finished) { stopAutoFold(); return; }
   targetBend = FOLD_CLOSE * 0.9;            // 视觉上真的掰下去
-  setTimeout(() => {
+  foldSwingTimer = setTimeout(() => {
+    foldSwingTimer = 0;
     if (!autoFolding) return;
     targetBend = 0;
     doFold(0.9);                            // 走正常的折叠流程：判定、音效、游戏内震动都在里面
@@ -789,7 +793,7 @@ function startAutoFold() {
   const chip = $('autoChip');
   if (chip) chip.hidden = false;
   sfx('up');
-  log('长按锁定：松手也会继续折，点一下屏幕停下。');
+  log('长按锁定：按住不放就一直折，松手即停。');
   autoFoldStep();
 }
 
@@ -797,7 +801,9 @@ function stopAutoFold() {
   if (!autoFolding) return;
   autoFolding = false;
   clearTimeout(autoTimer);
+  clearTimeout(foldSwingTimer);
   autoTimer = 0;
+  foldSwingTimer = 0;
   targetBend = 0;
   const chip = $('autoChip');
   if (chip) chip.hidden = true;
@@ -816,12 +822,14 @@ const BEND_BACK = 0.58;           // 反向掰的上限
 const FOLD_THRESHOLD = 0.34;      // 超过这个幅度松手算一次折叠
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-window.addEventListener('blur', () => cancelHold());
+// 切窗口/失焦等于手指不再按着：自动折叠必须跟着停
+window.addEventListener('blur', () => releasePointer(null));
 
 canvas.addEventListener('pointerdown', (e) => {
-  // 自动折叠进行中：任意一次点击都算"停"
-  if (autoFolding) { stopAutoFold(); return; }
   if (game.broken || game.finished) return;
+  // 自动折叠靠"按住"维持：这期间新的按下不接管、也不会打断它（松手才停）
+  if (autoFolding || activePointerId !== null) return;
+  activePointerId = e.pointerId;
   dragging = true;
   dragStartX = e.clientX;
   // 指针捕获对合成/陈旧 pointerId 会抛错，别让一次失败打断整条长按链路
@@ -835,7 +843,9 @@ let lastSandTick = 0;
 let lastBendSeen = 0;
 
 canvas.addEventListener('pointermove', (e) => {
-  if (!dragging) return;
+  if (!dragging || e.pointerId !== activePointerId) return;
+  // 自动折叠已经启动：直到松手为止，手指不再控制折叠角度
+  if (autoFolding) return;
   // 手一动就退出长按判定；充能期间不跟随拖拽，避免"长按"变成"误掰"
   if (charging) {
     if (Math.hypot(e.clientX - holdPoint.x, e.clientY - holdPoint.y) > HOLD_SLOP) cancelHold();
@@ -862,11 +872,17 @@ canvas.addEventListener('pointermove', (e) => {
   }
 });
 
-function releasePointer() {
+function releasePointer(e) {
+  // 只认维持住长按的那根手指；其它触点的抬起不影响
+  if (e && activePointerId !== null && e.pointerId !== activePointerId) return;
   if (!dragging) return;
+  const wasAuto = autoFolding;
   dragging = false;
+  activePointerId = null;
   cancelHold();
-  if (autoFolding) { targetBend = 0; return; }   // 已经进入自动折叠，松手不再判定一次
+  // 松手即停：按住多久就折多久，也不再补判一次手动折叠
+  if (wasAuto) stopAutoFold();
+  if (wasAuto || game.broken || game.finished) { targetBend = 0; return; }
   const strength = Math.abs(bend);
   if (strength >= FOLD_THRESHOLD) {
     doFold(strength);
@@ -884,6 +900,7 @@ canvas.addEventListener('pointerleave', releasePointer);
 
 // ================= 游戏动作 =================
 function doFold(strength) {
+  if (game.broken || game.finished) return;
   sfx('fold');
   if (game.sandUsed > 0) {
     // 铰链里残留沙粒：折叠时轻微的沙涩感
@@ -1109,7 +1126,8 @@ function tick(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
 
-  if (!dragging) {
+  // 自动折叠期间手指不参与控制，角度必须走阻尼才能演出"掰下去"的动画
+  if (!dragging || autoFolding) {
     const damp = game.sandUsed > 0 ? 9 : 14;   // 沙子卡住铰链，回弹更滞
     bend += (targetBend - bend) * Math.min(1, dt * damp);
     if (Math.abs(bend) < 0.0006) bend = 0;
