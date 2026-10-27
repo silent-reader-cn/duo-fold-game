@@ -1,7 +1,11 @@
 import { drawScreen } from './phone.js';
 import { RARITY } from './logic.js';
+import { t, getLang } from './i18n.js';
 
-const CJK = '"PingFang SC","Microsoft YaHei UI","Microsoft YaHei","Noto Sans SC",sans-serif';
+const SC = '"PingFang SC","Microsoft YaHei UI","Microsoft YaHei","Noto Sans SC",sans-serif';
+const LATIN = '"Helvetica Neue",Helvetica,"Segoe UI",Arial,system-ui,sans-serif';
+// 英文版别硬套中文字体栈：拉丁字形在 PingFang 里虽然能出，但字重和字距都不对
+const CJK = getLang() === 'en' ? LATIN : SC;
 const MONO = '"SF Mono","Consolas","Roboto Mono",monospace';
 
 function rr(ctx, x, y, w, h, r) {
@@ -108,7 +112,7 @@ export function makeCard(st) {
 
   ctx.fillStyle = 'rgba(150,158,172,.85)';
   ctx.font = `400 22px ${MONO}`;
-  ctx.fillText('设备折叠耐久性检测报告', m, 142);
+  ctx.fillText(t('card.reportSub'), m, 142);
 
   // 编号 + 日期（右）
   ctx.textAlign = 'right';
@@ -157,7 +161,7 @@ export function makeCard(st) {
   ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(140,148,162,.75)';
   ctx.font = `400 19px ${CJK}`;
-  ctx.fillText('综合评级', m, badgeY + 32);
+  ctx.fillText(t('card.gradeLabel'), m, badgeY + 32);
   ctx.fillStyle = gr.color;
   ctx.font = `700 30px ${CJK}`;
   ctx.fillText(st.stageName, m, badgeY + 74);
@@ -243,7 +247,7 @@ export function makeCard(st) {
 
   ctx.fillStyle = 'rgba(150,158,172,.9)';
   ctx.font = `400 28px ${CJK}`;
-  ctx.fillText('次折叠后送检', W / 2, foldY + 48);
+  ctx.fillText(t('card.afterFolds'), W / 2, foldY + 48);
 
   // STAGE 刻度尺
   const barY = foldY + 96;
@@ -276,19 +280,39 @@ export function makeCard(st) {
   const tx0 = m;
   const tw = W - m * 2;
   const rows = [
-    ['检测项', '结果', '判定', true],
-    ['屏幕折痕', st.stage >= 6 ? '深度不可逆' : st.stage >= 3 ? '可见' : '轻微', st.stage >= 6 ? '异常' : '合格'],
-    ['触控功能', st.stage >= 6 ? '间歇失效' : '正常', st.stage >= 6 ? '异常' : '合格'],
-    ['铰链结构', st.sand > 0 ? '异物侵入' : st.stage >= 8 ? '松动' : '正常', st.sand > 0 || st.stage >= 8 ? '异常' : '合格'],
-    ['屏幕表面', st.fan > 0 ? '涂层脱落' : '完好', st.fan > 0 ? '异常' : '合格'],
-    ['保修状态', st.ac > 0 ? '已使用延保' : '未使用', '—'],
+    { head: true, a: t('card.th.item'), b: t('card.th.result'), c: t('card.th.verdict') },
+    {
+      a: t('card.row.crease'),
+      b: st.stage >= 6 ? t('card.val.irreversible') : st.stage >= 3 ? t('card.val.visible') : t('card.val.slight'),
+      bad: st.stage >= 6,
+    },
+    {
+      a: t('card.row.touch'),
+      b: st.stage >= 6 ? t('card.val.intermittent') : t('card.val.normal'),
+      bad: st.stage >= 6,
+    },
+    {
+      a: t('card.row.hinge'),
+      b: st.sand > 0 ? t('card.val.debris') : st.stage >= 8 ? t('card.val.loose') : t('card.val.normal'),
+      bad: st.sand > 0 || st.stage >= 8,
+    },
+    {
+      a: t('card.row.surface'),
+      b: st.fan > 0 ? t('card.val.coating') : t('card.val.intact'),
+      bad: st.fan > 0,
+    },
+    {
+      a: t('card.row.warranty'),
+      b: st.ac > 0 ? t('card.val.careUsed') : t('card.val.careUnused'),
+      dash: true,
+    },
   ];
 
   const rowH = 46;
   ctx.font = `400 21px ${CJK}`;
   rows.forEach((row, i) => {
     const y = tY + i * rowH;
-    const isHead = i === 0;
+    const isHead = !!row.head;
     if (isHead) {
       ctx.fillStyle = 'rgba(255,255,255,.05)';
       ctx.fillRect(tx0, y - 30, tw, rowH);
@@ -300,17 +324,20 @@ export function makeCard(st) {
     ctx.textAlign = 'left';
     ctx.fillStyle = isHead ? 'rgba(150,158,172,.85)' : 'rgba(196,203,214,.92)';
     ctx.font = `${isHead ? 600 : 400} 20px ${CJK}`;
-    ctx.fillText(row[0], tx0 + 18, y);
+    ctx.fillText(row.a, tx0 + 18, y);
 
     ctx.textAlign = 'center';
     ctx.fillStyle = isHead ? 'rgba(150,158,172,.85)' : 'rgba(170,178,192,.85)';
-    ctx.fillText(row[1], tx0 + tw * 0.62, y);
+    ctx.fillText(row.b, tx0 + tw * 0.62, y);
 
+    // 判定列：异常红 / 合格绿 / 无事可判（保修那条）灰
+    const verdict = isHead ? row.c : row.dash ? '—' : row.bad ? t('card.val.fail') : t('card.val.pass');
     ctx.textAlign = 'right';
-    const bad = row[2] === '异常';
-    ctx.fillStyle = isHead ? 'rgba(150,158,172,.85)' : bad ? '#ff5c6c' : 'rgba(120,190,150,.9)';
+    ctx.fillStyle = isHead || row.dash
+      ? 'rgba(150,158,172,.85)'
+      : row.bad ? '#ff5c6c' : 'rgba(120,190,150,.9)';
     ctx.font = `${isHead ? 600 : 700} 20px ${CJK}`;
-    ctx.fillText(row[2], tx0 + tw - 18, y);
+    ctx.fillText(verdict, tx0 + tw - 18, y);
   });
 
   // ================= 词条 =================
@@ -319,15 +346,15 @@ export function makeCard(st) {
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(120,128,142,.75)';
     ctx.font = `400 19px ${CJK}`;
-    ctx.fillText(`检出故障项 ${traits.length}`, m, chipY);
+    ctx.fillText(t('card.defects', { n: traits.length }), m, chipY);
 
     ctx.textAlign = 'center';
     let cx = m;
     let cy = chipY + 18;
-    for (const t of traits) {
-      const rar = RARITY[t.rarity] || RARITY.common;
+    for (const tr of traits) {
+      const rar = RARITY[tr.rarity] || RARITY.common;
       ctx.font = `600 21px ${CJK}`;
-      const tw2 = ctx.measureText(t.name).width + 34;
+      const tw2 = ctx.measureText(tr.name).width + 34;
       if (cx + tw2 > W - m) { cx = m; cy += 50; }
       rr(ctx, cx, cy, tw2, 38, 19);
       ctx.fillStyle = rar.color + '20';
@@ -336,7 +363,7 @@ export function makeCard(st) {
       ctx.lineWidth = 1.4;
       ctx.stroke();
       ctx.fillStyle = rar.color;
-      ctx.fillText(t.name, cx + tw2 / 2, cy + 26);
+      ctx.fillText(tr.name, cx + tw2 / 2, cy + 26);
       cx += tw2 + 12;
     }
     chipY = cy + 76;
@@ -371,12 +398,14 @@ export function makeCard(st) {
   ctx.stroke();
   ctx.fillStyle = '#e03b4a';
   ctx.textAlign = 'center';
-  ctx.font = `700 25px ${CJK}`;
-  ctx.fillText('人为损坏', 0, -6);
-  ctx.font = `700 20px ${CJK}`;
-  ctx.fillText('不予保修', 0, 26);
+  // 英文的章面词更长，字号得收一档，否则会顶出圆环
+  const en = getLang() === 'en';
+  ctx.font = `700 ${en ? 19 : 25}px ${CJK}`;
+  ctx.fillText(t('card.stamp1'), 0, -6);
+  ctx.font = `700 ${en ? 17 : 20}px ${CJK}`;
+  ctx.fillText(t('card.stamp2'), 0, 26);
   ctx.font = `400 13px ${MONO}`;
-  ctx.fillText('NOT COVERED', 0, 52);
+  ctx.fillText(t('card.stamp3'), 0, 52);
   // 磨损痕迹
   ctx.globalCompositeOperation = 'destination-out';
   for (let i = 0; i < 26; i++) {

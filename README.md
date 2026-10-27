@@ -13,6 +13,18 @@
 > Godot 版因为包体 37MB + 必须 HTTPS（secure context）而放弃，保留作参考实现。
 > 数值系统两版共用同一套参数。
 
+## 双语 / Bilingual
+
+界面语言**跟着浏览器走**，不需要玩家选：
+
+- 浏览器首选语言是中文（`zh-*`）→ 中文；其它语言一律英文（日文、德文等也落到英文）
+- 判定顺序：URL 上的 `?lang=xx` → 上次记住的选择 → 浏览器语言 → 兜底英文
+- `?lang=en` / `?lang=zh` 可强制指定，并记进 `localStorage`（`duofold.lang`），之后直接进站也跟着变
+- 覆盖面：HUD、横幅、日志、25 条词条、品阶名、成就页、成绩卡（画布重绘）、3D 内屏上的 App 名与日期
+- 所有文案集中在 `src/i18n.js` 一张 `[中文, 英文]` 表里；改文案只改这一处，不要回模块里硬写
+
+右上角还有一个 GitHub 图标按钮（`#btnGithub`）直达源码仓库，跟「成就」胶囊同一套玻璃质感。
+
 ## Web 版玩法
 
 - **拖动折叠**：按住机身左右拖。向右折起（V 形悬停姿态，内屏始终可见），向左掰弯（更伤）
@@ -56,12 +68,13 @@ python serve.py --port 21000 --bind 0.0.0.0   # 带 Cache-Control: no-store 的�
 
 ```
 web/
-├── index.html           HUD 结构 + importmap
+├── index.html           HUD 结构 + importmap + 启动守卫（自带双语）
 ├── style.css
 ├── src/
+│   ├── i18n.js          全部玩家可见文案（zh/en）+ 浏览器语言判定
 │   ├── main.js          场景/相机/交互/音效/震动/粒子
 │   ├── phone.js         3D 手机建模 + 折叠形变 + 屏幕绘制
-│   ├── logic.js         数值系统 + 词条池
+│   ├── logic.js         数值系统 + 词条池（文字走 i18n）
 │   ├── achievements.js  成就存档持久化
 │   ├── card.js          成就卡片绘制
 │   └── icons.js         Lucide 图标提取（MIT）

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { FILL_ICONS } from './ios_icons.js';
+// 这个文件里 t 到处是"动画时间"，取词函数改名导入，别撞
+import { t as tr } from './i18n.js';
 
 // ================= 真实尺寸（Duo Fold）=================
 // 内屏 7.6" 4:3 → 展开 157×112mm；外屏 5.4" 在背面；展开厚 5.2mm
@@ -125,32 +127,13 @@ function durianTexture() {
 
 // ---------------- iOS Home 界面 ----------------
 // iOS 风格 App：实心图形 + 各自的标准配色（Bootstrap Icons, MIT）
+// 屏幕上的 App 名跟系统语言走，按当前语言从 i18n 取
 const APPS = [
-  { key: 'camera',           name: '相机' },
-  { key: 'messages',         name: '信息' },
-  { key: 'music',            name: '音乐' },
-  { key: 'maps',             name: '地图' },
-  { key: 'mail',             name: '邮件' },
-  { key: 'settings',         name: '设置' },
-  { key: 'calendar',         name: '日历' },
-  { key: 'weather',          name: '天气' },
-  { key: 'clock',            name: '时钟' },
-  { key: 'notes',            name: '备忘录' },
-  { key: 'facetime',         name: 'FaceTime' },
-  { key: 'robinhood',        name: '股票' },
-  { key: 'wallet',           name: '钱包' },
-  { key: 'files',            name: '文件' },
-  { key: 'shazam',           name: '识曲' },
-  { key: 'health',           name: '健康' },
-  { key: 'photos',           name: '照片' },
-  { key: 'appstore',         name: 'App Store' },
-  { key: 'google_translate', name: '翻译' },
-  { key: 'calculator',       name: '计算器' },
-  { key: 'safari',           name: 'Safari' },
-  { key: 'phone',            name: '电话' },
-  { key: 'compass',          name: '指南针' },
-  { key: 'google_drive',     name: '云盘' },
-];
+  'camera', 'messages', 'music', 'maps', 'mail', 'settings', 'calendar',
+  'weather', 'clock', 'notes', 'facetime', 'robinhood', 'wallet', 'files',
+  'shazam', 'health', 'photos', 'appstore', 'google_translate', 'calculator',
+  'safari', 'phone', 'compass', 'google_drive',
+].map((key) => ({ key, get name() { return tr(`app.${key}`); } }));
 
 // 预加载 iOS 26 图标（iOSIconPack, MIT）：直接使用真实图标位图
 const ICON_IMGS = {};
@@ -775,7 +758,7 @@ export function drawCover(ctx, st) {
 
     ctx.fillStyle = 'rgba(58,64,78,.66)';
     ctx.font = `400 26px ${CJK}`;
-    ctx.fillText('10月23日 星期五', SW / 2, SH * 0.255);
+    ctx.fillText(tr('screen.date'), SW / 2, SH * 0.255);
 
     // 小组件方块
     for (let i = 0; i < 2; i++) {
@@ -791,7 +774,7 @@ export function drawCover(ctx, st) {
       ctx.stroke();
       ctx.fillStyle = 'rgba(58,64,78,.72)';
       ctx.font = `400 20px ${CJK}`;
-      ctx.fillText(i === 0 ? '日历' : '天气', bx + bw / 2, SH * 0.40);
+      ctx.fillText(tr(i === 0 ? 'screen.widgetCalendar' : 'screen.widgetWeather'), bx + bw / 2, SH * 0.40);
     }
   }
 

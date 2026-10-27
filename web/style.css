@@ -1013,3 +1013,48 @@ body::after {
   border: 1px solid rgba(255, 82, 82, .55); border-radius: 6px; cursor: pointer;
 }
 #bootErr button:active { background: rgba(255, 82, 82, .34); }
+
+/* ================= 双语（zh / en）================= */
+/* 文案还没按语言刷完时先别露字：英文用户不该看到一帧中文。
+   i18n.js 刷完会摘掉 .i18n-wait；index.html 另有 3 秒兜底，脚本挂了也不会永久隐藏 */
+html.i18n-wait .hud-panel,
+html.i18n-wait .swipe-hint,
+html.i18n-wait .panel { visibility: hidden; }
+
+/* 英文比中文长：字距收一点，别把顶栏和按钮挤换行 */
+html[data-lang="en"] .brand em { font-size: 13px; letter-spacing: .05em; }
+html[data-lang="en"] .book-btn { letter-spacing: .04em; }
+html[data-lang="en"] .stop { letter-spacing: .03em; }
+html[data-lang="en"] .book-heading h2 { letter-spacing: .06em; }
+html[data-lang="en"] .book-group { letter-spacing: .12em; }
+html[data-lang="en"] .book-stat span { letter-spacing: .02em; }
+
+/* ================= 顶部右侧：GitHub 源码入口 ================= */
+/* 与「成就」胶囊同一套玻璃质感，但只有图标，不抢主按钮的注意力 */
+.gh-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; flex: none; border-radius: 999px;
+  color: rgba(232, 236, 242, .86);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .085), rgba(255, 255, 255, .022)),
+    rgba(12, 15, 20, .72);
+  border: 1px solid rgba(255, 255, 255, .16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .12),
+    0 8px 20px -14px rgba(0, 0, 0, .95);
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color .18s, box-shadow .18s, transform .12s, color .18s;
+}
+.gh-btn svg { width: 15px; height: 15px; display: block; }
+.gh-btn:active {
+  transform: scale(.94);
+  border-color: rgba(255, 255, 255, .45);
+  color: #fff;
+}
+@media (hover: hover) {
+  .gh-btn:hover {
+    border-color: rgba(255, 255, 255, .34);
+    color: #fff;
+  }
+}

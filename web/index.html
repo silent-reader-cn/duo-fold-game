@@ -6,15 +6,71 @@
 <meta name="theme-color" content="#08090b">
 <title>Duo Fold · 折叠耐力测试</title>
 <link rel="stylesheet" href="./style.css">
+<script>
+  // 文案按语言刷完再露脸，否则英文用户会闪一帧中文。i18n 刷完摘掉这个 class；
+  // 兜底 3 秒：宁可露一帧中文，也不能因为脚本挂了白屏
+  document.documentElement.classList.add('i18n-wait');
+  setTimeout(function () {
+    document.documentElement.classList.remove('i18n-wait');
+  }, 3000);
+</script>
 </head>
 <body>
   <!-- 启动守卫：模块加载失败（缓存混版 / WebGL 不可用 / 语法不支持）时把真实错误显示出来。
-       这段是内联脚本，不经过模块缓存，模块全挂它也能跑 -->
+       这段是内联脚本，不经过模块缓存，模块全挂它也能跑 —— 所以连翻译都得自带一份：
+       先认 <html data-lang>（i18n 活着就已经写好），拿不到再自己判一遍浏览器语言 -->
   <script>
   (function () {
-    var BUILD = '2026-10-27a';
+    var BUILD = '2026-10-27b';
     window.__duoBuild = BUILD;
     var box = null;
+
+    var MSG = {
+      zh: {
+        fail: '启动失败 build ',
+        asset: '资源加载失败 ',
+        unknown: '未知错误',
+        promise: 'Promise 异常',
+        retry: '重试',
+        missing: '这些脚本没取到：',
+        sep: '；',
+        norun: '脚本都取到了但没跑起来（多半是浏览器内核或 WebGL 的问题）',
+        probeFail: '主模块没跑起来，且探测脚本也失败了',
+        reqFail: '请求失败',
+      },
+      en: {
+        fail: 'Boot failed, build ',
+        asset: 'Asset failed to load ',
+        unknown: 'Unknown error',
+        promise: 'Unhandled promise rejection',
+        retry: 'Retry',
+        missing: 'These scripts could not be fetched: ',
+        sep: '; ',
+        norun: 'All scripts loaded but nothing ran (usually the browser engine or WebGL)',
+        probeFail: 'The main module never ran, and the probe failed too',
+        reqFail: 'request failed',
+      },
+    };
+
+    function dict() {
+      var d = document.documentElement.getAttribute('data-lang');
+      if (d === 'zh' || d === 'en') return MSG[d];
+      // i18n 没起来（典型情况：它自己 404）——那就自己判一次
+      try {
+        var q = new URLSearchParams(location.search).get('lang');
+        if (q && /^zh/i.test(q)) return MSG.zh;
+        if (q && /^en/i.test(q)) return MSG.en;
+        var saved = localStorage.getItem('duofold.lang');
+        if (saved === 'zh' || saved === 'en') return MSG[saved];
+      } catch (e) { /* 无 localStorage 的环境 */ }
+      var list = navigator.languages || [navigator.language || ''];
+      for (var i = 0; i < list.length; i++) {
+        var v = String(list[i] || '').toLowerCase();
+        if (v.indexOf('zh') === 0) return MSG.zh;
+        if (v.indexOf('en') === 0) return MSG.en;
+      }
+      return MSG.en;
+    }
 
     function ensureBox() {
       if (!box) {
@@ -28,14 +84,15 @@
 
     // 诊断条：错误原文 + 当前 build，方便一眼区分"旧缓存"和"设备不支持"
     function show(msg) {
+      var m = dict();
       var b = ensureBox();
-      b.textContent = '启动失败 build ' + BUILD + '：' + msg;
+      b.textContent = m.fail + BUILD + (m === MSG.zh ? '：' : ': ') + msg;
       b.hidden = false;
       if (!document.getElementById('bootRetry')) {
         var btn = document.createElement('button');
         btn.id = 'bootRetry';
         btn.type = 'button';
-        btn.textContent = '重试';
+        btn.textContent = m.retry;
         b.appendChild(btn);
       }
     }
@@ -44,15 +101,15 @@
     window.addEventListener('error', function (e) {
       var t = e.target;
       if (t && t !== window && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
-        show('资源加载失败 ' + (t.src || t.href || ''));
+        show(dict().asset + (t.src || t.href || ''));
         return;
       }
-      show((e.message || '未知错误') +
+      show((e.message || dict().unknown) +
         (e.filename ? ' @ ' + String(e.filename).split('/').pop() + ':' + e.lineno : ''));
     }, true);
     window.addEventListener('unhandledrejection', function (e) {
       var r = e.reason;
-      show(String((r && (r.message || r)) || 'Promise 异常'));
+      show(String((r && (r.message || r)) || dict().promise));
     });
     setTimeout(function () {
       if (!window.__duo) probeModules();
@@ -60,7 +117,7 @@
 
     // 逐个探测模块文件：能明确说出"哪个文件没取到"，而不是让玩家猜缓存
     var FILES = [
-      './src/main.js', './src/logic.js', './src/phone.js',
+      './src/i18n.js', './src/main.js', './src/logic.js', './src/phone.js',
       './src/card.js', './src/achievements.js', './vendor/three.module.js',
     ];
     function probeModules() {
@@ -68,15 +125,14 @@
         return fetch(f, { cache: 'no-store' }).then(function (r) {
           return r.ok ? null : f + ' → HTTP ' + r.status;
         }).catch(function (e) {
-          return f + ' → ' + (e && e.message ? e.message : '请求失败');
+          return f + ' → ' + (e && e.message ? e.message : dict().reqFail);
         });
       })).then(function (list) {
         var bad = list.filter(Boolean);
-        show(bad.length
-          ? '这些脚本没取到：' + bad.join('；')
-          : '脚本都取到了但没跑起来（多半是浏览器内核或 WebGL 的问题）');
+        var m = dict();
+        show(bad.length ? m.missing + bad.join(m.sep) : m.norun);
       }).catch(function () {
-        show('主模块没跑起来，且探测脚本也失败了');
+        show(dict().probeFail);
       });
     }
 
@@ -100,10 +156,10 @@
   <div class="ui">
    <div class="hud-panel">
     <header class="hud">
-      <div class="brand">DUO FOLD<em>折叠耐力测试</em></div>
+      <div class="brand">DUO FOLD<em data-i18n="brand.sub">折叠耐力测试</em></div>
       <div class="hud-right">
-        <div class="folds">折叠 <b id="foldCount">0</b> 次</div>
-        <button id="btnBook" class="book-btn" aria-label="成就">
+        <div class="folds" id="foldsLine">折叠 <b>0</b> 次</div>
+        <button id="btnBook" class="book-btn" data-i18n-attr="aria-label:hud.book">
           <svg class="bb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
             <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
@@ -112,9 +168,18 @@
             <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
             <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
           </svg>
-          <span>成就</span>
+          <span data-i18n="hud.book">成就</span>
           <i class="bb-dot" id="bookDot" hidden></i>
         </button>
+        <!-- 源码入口：真链写在 HTML 里，不靠 JS 拼；中键直开 / 爬虫都能用 -->
+        <a id="btnGithub" class="gh-btn"
+           href="https://github.com/silent-reader-cn/duo-fold-game"
+           target="_blank" rel="noopener noreferrer"
+           data-i18n-attr="aria-label:hud.gh,title:hud.gh">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+          </svg>
+        </a>
       </div>
     </header>
 
@@ -122,7 +187,7 @@
       <div class="stage-badge"><span id="stageBadge">01</span></div>
       <div class="stage-main">
         <div class="stage-row">
-          <h1 id="stageName">全新未拆封</h1>
+          <h1 id="stageName" data-i18n="stage.1">全新未拆封</h1>
           <div id="stageSub">STAGE 01 / 10</div>
         </div>
         <div class="stage-bar" id="stageBar"></div>
@@ -131,7 +196,7 @@
 
     <div class="traits-wrap">
       <div class="traits-head">
-        <span id="traitCount">词条 0 / 9</span>
+        <span id="traitCount" data-i18n="hud.traitsInit">词条 0 / 9</span>
       </div>
       <div class="traits" id="traits"></div>
     </div>
@@ -141,15 +206,15 @@
         <div class="sh-lane"><i class="sh-dot"></i></div>
         <div class="sh-chev"><i>›</i><i>›</i><i>›</i></div>
         <div class="sh-txt">
-          <b>向右滑动</b>
-          <em>按住机身 · 掰出第一折</em>
+          <b data-i18n="hint.swipeTitle">向右滑动</b>
+          <em data-i18n="hint.swipeSub">按住机身 · 掰出第一折</em>
         </div>
       </div>
       <div class="sh-step sh-step-hold">
         <div class="sh-ring"></div>
         <div class="sh-txt">
-          <b>长按不动</b>
-          <em>按住不放 · 松手即停</em>
+          <b data-i18n="hint.holdTitle">长按不动</b>
+          <em data-i18n="hint.holdSub">按住不放 · 松手即停</em>
         </div>
       </div>
     </div>
@@ -158,17 +223,17 @@
       <div class="log" id="log"></div>
       <div class="risk" id="risk"></div>
       <div class="care-note" id="careNote" hidden>
-        <div class="cn-head">本机最高 <b id="cnBest">—</b></div>
+        <div class="cn-head"><span data-i18n="care.bestLabel">本机最高</span> <b id="cnBest">—</b></div>
         <div class="cn-rule" id="cnRule">
-          <i data-lv="2">8 阶 · 2 次</i><i data-lv="3">9 阶 · 3 次</i><i data-lv="4">10 阶 · 4 次</i>
+          <i data-lv="2" data-i18n="care.rule2">8 阶 · 2 次</i><i data-lv="3" data-i18n="care.rule3">9 阶 · 3 次</i><i data-lv="4" data-i18n="care.rule4">10 阶 · 4 次</i>
         </div>
       </div>
       <div class="items">
-        <button id="btnFan" data-kind="fan">吹风机<b>2</b></button>
-        <button id="btnSand" data-kind="sand">沙子<b>2</b></button>
-        <button id="btnAC">延保<b id="acSub">续命 ×1</b></button>
+        <button id="btnFan" data-kind="fan"><span data-i18n="item.fan">吹风机</span><b>2</b></button>
+        <button id="btnSand" data-kind="sand"><span data-i18n="item.sand">沙子</span><b>2</b></button>
+        <button id="btnAC"><span data-i18n="item.care">延保</span><b id="acSub">续命 ×1</b></button>
       </div>
-      <button id="btnStop" class="stop">收手 · 出成就卡</button>
+      <button id="btnStop" class="stop" data-i18n="item.stop">收手 · 出成就卡</button>
     </footer>
 
   </div>
@@ -177,7 +242,7 @@
 
   <div class="book" id="book" hidden>
     <div class="book-card">
-      <button class="book-close" id="closeBook" aria-label="关闭">✕</button>
+      <button class="book-close" id="closeBook" data-i18n-attr="aria-label:book.close">✕</button>
 
       <div class="book-top">
         <div class="book-ring">
@@ -194,8 +259,8 @@
           <span id="ringText">0%</span>
         </div>
         <div class="book-heading">
-          <h2>成就</h2>
-          <p id="bookProgress">已解锁 0 / 25</p>
+          <h2 data-i18n="book.title">成就</h2>
+          <p id="bookProgress" data-i18n="book.progressInit">已解锁 0 / 25</p>
         </div>
       </div>
 
@@ -206,10 +271,10 @@
 
   <div class="modal" id="cardModal" hidden>
     <div class="sheet">
-      <img id="cardImg" alt="成就卡片">
+      <img id="cardImg" data-i18n-attr="alt:card.alt" alt="成就卡片">
       <div class="acts">
-        <a id="dlCard" download>保存图片</a>
-        <button id="closeCard">再来一台</button>
+        <a id="dlCard" download data-i18n="card.save">保存图片</a>
+        <button id="closeCard" data-i18n="card.again">再来一台</button>
       </div>
     </div>
   </div>

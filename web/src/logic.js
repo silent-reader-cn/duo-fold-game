@@ -1,8 +1,12 @@
 // 数值系统 —— 参数直接沿用 Godot 版跑过 3 万次模拟的那一套
-export const STAGE_NAMES = [
-  '全新未拆封', '初见折痕', '折痕明显', '偶发闪屏', '一缕绿线',
-  '触控时灵', '久经沙场', '战损成色', '厂商拒保', '传奇·一掰就碎',
-];
+// 面向玩家的文字（品阶名 / 词条 / 台词）全部走 i18n，这里只留 id 与数值
+import { t, pick } from './i18n.js';
+
+/** 品阶名（1~10） */
+export function stageNameOf(stage) {
+  return t(`stage.${stage}`);
+}
+
 export const MAX_STAGE = 10;
 
 // 三次方曲线：前段几乎安全，后段加速崩塌
@@ -47,46 +51,54 @@ export function holdPulseGap(progress) {
 // 池内 7 普通 / 7 稀有 / 5 史诗 / 5 传说（道具专属已排除）
 // 目标：传说占比约 2.9%，配合 fold 的词条触发率，约 100 折能撞到一次
 export const RARITY = {
-  common: { label: '普通', color: '#9aa0a8', weight: 62 },
-  rare: { label: '稀有', color: '#4aa3ff', weight: 34 },
-  epic: { label: '史诗', color: '#b76bff', weight: 16 },
-  legendary: { label: '传说', color: '#ffb020', weight: 7.5 },
+  common: { get label() { return t('rar.common'); }, color: '#9aa0a8', weight: 62 },
+  rare: { get label() { return t('rar.rare'); }, color: '#4aa3ff', weight: 34 },
+  epic: { get label() { return t('rar.epic'); }, color: '#b76bff', weight: 16 },
+  legendary: { get label() { return t('rar.legendary'); }, color: '#ffb020', weight: 7.5 },
 };
 
-export const TRAITS = [
+// 词条池只留 id + 稀有度；名称与说明按当前语言从 i18n 取（getter，切语言后自动跟着变）
+const TRAIT_DEFS = [
   // ---- 普通：外观开始不对劲 ----
-  { id: 'crease', name: '折痕加深', rarity: 'common', desc: '折线在侧光下越来越明显' },
-  { id: 'greenline', name: '一缕绿线', rarity: 'common', desc: '折线处泛出一条 1mm 的绿' },
-  { id: 'paint', name: '边缘掉漆', rarity: 'common', desc: '钛边框开始掉色' },
-  { id: 'rattle', name: '铰链异响', rarity: 'common', desc: '每次开合都咔哒一声' },
-  { id: 'warm', name: '轻微发烫', rarity: 'common', desc: '高负载下烫手' },
-  { id: 'dust', name: '铰链进灰', rarity: 'common', desc: '口袋里的碎屑攒在铰链口' },
-  { id: 'chad', name: '小 A 壳翘起', rarity: 'common', desc: '内屏边框的防尘麦拉翘了起来' },
+  ['crease', 'common'],
+  ['greenline', 'common'],
+  ['paint', 'common'],
+  ['rattle', 'common'],
+  ['warm', 'common'],
+  ['dust', 'common'],
+  ['chad', 'common'],
 
   // ---- 稀有：功能开始受损 ----
-  { id: 'loose', name: '合不严实', rarity: 'rare', desc: '铰链卡了沙，合上留一道缝' },
-  { id: 'touch', name: '触控漂移', rarity: 'rare', desc: '触点会自己乱跑' },
-  { id: 'deadpx', name: '坏点扩散', rarity: 'rare', desc: '绿色坏点开始蔓延' },
-  { id: 'flicker', name: '偶发闪屏', rarity: 'rare', desc: '屏幕时不时抽一下' },
-  { id: 'leak', name: '内屏漏液', rarity: 'rare', desc: '角落渗出黑斑，报价四位数' },
-  { id: 'peel', name: '保护膜起翘', rarity: 'rare', desc: '原厂膜从边角开始卷' },
-  { id: 'bulge', name: '异物顶包', rarity: 'rare', desc: '屏下有个东西，一按就顶出鼓包' },
+  ['loose', 'rare'],
+  ['touch', 'rare'],
+  ['deadpx', 'rare'],
+  ['flicker', 'rare'],
+  ['leak', 'rare'],
+  ['peel', 'rare'],
+  ['bulge', 'rare'],
 
   // ---- 史诗：结构性损伤 ----
-  { id: 'fullgreen', name: '绿线贯通', rarity: 'epic', desc: '整条折线都在发绿' },
-  { id: 'halfdead', name: '半屏失效', rarity: 'epic', desc: '右边那一半不太行了' },
-  { id: 'bubble', name: '折线起泡', rarity: 'epic', desc: '膜下鼓起了气泡，通常几小时内脱层' },
-  { id: 'hingeloosen', name: '铰链松动', rarity: 'epic', desc: '机身能自己晃' },
-  { id: 'delam', name: '整屏脱层', rarity: 'epic', desc: 'OLED 层和玻璃分家了' },
+  ['fullgreen', 'epic'],
+  ['halfdead', 'epic'],
+  ['bubble', 'epic'],
+  ['hingeloosen', 'epic'],
+  ['delam', 'epic'],
 
   // ---- 传说：荒诞级 ----
-  { id: 'mattegone', name: '磨砂膜脱落', rarity: 'legendary', desc: '纳米纹理被撕了，屏幕变亮面' },
-  { id: 'selfheal', name: '假性自愈', rarity: 'legendary', desc: '裂纹看着淡了一点——别信' },
-  { id: 'officially', name: '官方拒保', rarity: 'legendary', desc: '你已被列入人为损坏名单' },
-  { id: 'unbroken', name: '越折越紧', rarity: 'legendary', desc: '这台的铰链反而更结实了' },
-  { id: 'freephone', name: '免费换新', rarity: 'legendary', desc: '检测为非人为，直接换机' },
-  { id: 'noreport', name: '无检测报告', rarity: 'legendary', desc: '判定人为，但拒绝出具报告' },
+  ['mattegone', 'legendary'],
+  ['selfheal', 'legendary'],
+  ['officially', 'legendary'],
+  ['unbroken', 'legendary'],
+  ['freephone', 'legendary'],
+  ['noreport', 'legendary'],
 ];
+
+export const TRAITS = TRAIT_DEFS.map(([id, rarity]) => ({
+  id,
+  rarity,
+  get name() { return t(`trait.${id}.name`); },
+  get desc() { return t(`trait.${id}.desc`); },
+}));
 
 export const TRAIT_MAP = Object.fromEntries(TRAITS.map((t) => [t.id, t]));
 
@@ -147,7 +159,7 @@ export class Game {
     return null;
   }
 
-  get stageName() { return STAGE_NAMES[this.stage - 1]; }
+  get stageName() { return stageNameOf(this.stage); }
 
   breakChance(extra = 0) {
     const f = this.folds + extra;
@@ -189,7 +201,7 @@ export class Game {
         return {
           result: 'ac',
           left: (this.acMax || 1) - this.acUsed,
-          text: '屏幕窜出一道绿线——延保自动生效，直接换机。品阶不倒扣。',
+          text: t('act.ac'),
         };
       }
       this.broken = true;
@@ -222,7 +234,7 @@ export class Game {
     this.breakBonus += 0.15;   // 高风险：换进度 + 专属词条
     const gained = this.grant('mattegone', 'crease');
     return {
-      text: '吹风机加热，磨砂层被撕下——屏幕秒变亮面，折痕无处可藏。保修标记灰了。',
+      text: t('act.fan'),
       gained,
     };
   }
@@ -234,7 +246,7 @@ export class Game {
     this.breakBonus += 0.13;   // 高风险：换一次免死 + 专属词条
     const gained = this.grant('loose', 'rattle');
     return {
-      text: '一小撮沙子进了铰链。它能帮你硬扛一折，代价是永远合不严、而且每次开合都咔哒响。',
+      text: t('act.sand'),
       gained,
     };
   }
@@ -267,32 +279,16 @@ export class Game {
 
   pickQuote() {
     if (this.broken) {
-      const arr = [
-        '客服：属人为损坏。',
-        '检测结论：非人为。但屏幕还是裂了。',
-        '已为您安排更换新机。新机同样易碎。',
-        '我们对您的不便深表遗憾。（本条为全部赔偿）',
-      ];
-      return arr[Math.floor(Math.random() * arr.length)];
+      return pick(['q.broken.0', 'q.broken.1', 'q.broken.2', 'q.broken.3']);
     }
     if (this.stage >= 7) {
-      const arr = ['它还能折。大概。', '这不是手机，是一段经历。', '别问保修，问就是人为。'];
-      return arr[Math.floor(Math.random() * arr.length)];
+      return pick(['q.late.0', 'q.late.1', 'q.late.2']);
     }
-    const arr = [
-      '你确实没用力。它确实碎了。（预告）',
-      '建议购买延保。',
-      '折痕还在可接受范围内。今天。',
-      '形态完好，心情复杂。',
-    ];
-    return arr[Math.floor(Math.random() * arr.length)];
+    return pick(['q.normal.0', 'q.normal.1', 'q.normal.2', 'q.normal.3']);
   }
 }
 
-export const FLAT_LINES = [
-  '这一折……什么也没发生。但折痕更深了。',
-  '咔哒。还是那样。',
-  '你怀疑自己是不是折反了。',
-  '屏幕的光比刚才暗了一点点。',
-  '没有升级。风险倒是涨了。',
-];
+/** 白折（什么也没发生）的随机嘴碎 */
+export function flatLine() {
+  return pick(['q.flat.0', 'q.flat.1', 'q.flat.2', 'q.flat.3', 'q.flat.4']);
+}

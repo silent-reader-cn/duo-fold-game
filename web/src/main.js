@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { Game, MAX_STAGE, FAN_MAX, SAND_MAX, FLAT_LINES, TRAIT_MAP, RARITY, TRAITS, acLevelFor, HOLD_MS, HOLD_FIRST_DELAY, holdPulseMs, holdPulseGap } from './logic.js';
+import { Game, MAX_STAGE, FAN_MAX, SAND_MAX, flatLine, TRAIT_MAP, RARITY, TRAITS, acLevelFor, HOLD_MS, HOLD_FIRST_DELAY, holdPulseMs, holdPulseGap } from './logic.js';
 import { createPhone, makeEnvironment, setWallpaper } from './phone.js';
 import { makeCard } from './card.js';
+import { t, applyStatic } from './i18n.js';
 import { loadAch, loadAcMax, saveAcMax, recordRun, traitCount, unseenCount, markSeen } from './achievements.js';
 
 const $ = (id) => document.getElementById(id);
@@ -247,7 +248,7 @@ try {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
 } catch (err) {
   // 拿不到 WebGL2 上下文时别让整页静默白屏：给出可读原因（部分机型的省电模式/隐私设置会禁掉）
-  window.__bootErr?.('这台设备拿不到 WebGL2 上下文：' + (err && err.message ? err.message : err));
+  window.__bootErr?.(t('boot.webgl', { e: err && err.message ? err.message : err }));
   throw err;
 }
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -486,13 +487,13 @@ function updateTraitsUI() {
   );
   traitBar.innerHTML = sorted
     .map((id) => {
-      const t = TRAIT_MAP[id];
-      const r = RARITY[t.rarity];
-      return `<span class="trait r-${t.rarity}" style="color:${r.color}"><i></i>${t.name}</span>`;
+      const tr = TRAIT_MAP[id];
+      const r = RARITY[tr.rarity];
+      return `<span class="trait r-${tr.rarity}" style="color:${r.color}"><i></i>${tr.name}</span>`;
     })
     .join('');
   const cnt = $('traitCount');
-  if (cnt) cnt.textContent = `词条 ${game.traits.length} / 9`;
+  if (cnt) cnt.textContent = t('hud.traits', { n: game.traits.length });
 }
 
 const GLOW_COLOR = {
@@ -546,20 +547,21 @@ function celebrateTrait(t) {
 
 // 稀有度横幅：斜向贯穿整屏的条带。分三档，越稀有层次越多。
 // rare = 单带快扫 / epic = 双层 + 扫光 + 文字弹入 / legendary = 三层 + 双扫光 + 星点 + 逐字上浮
-function showRarityBanner(t, rarity) {
+function showRarityBanner(trait, rarity) {
   const RAR = {
-    rare: { label: '稀有词条', color: '#4aa3ff', hold: 1400 },
-    epic: { label: '史诗词条', color: '#b76bff', hold: 1750 },
-    legendary: { label: '传说词条', color: '#ffb020', hold: 2300 },
+    rare: { label: t('rar.banner.rare'), color: '#4aa3ff', hold: 1400 },
+    epic: { label: t('rar.banner.epic'), color: '#b76bff', hold: 1750 },
+    legendary: { label: t('rar.banner.legendary'), color: '#ffb020', hold: 2300 },
   };
   const cfg = RAR[rarity];
   if (!cfg) return;
-  playBand(cfg.label, t.name, cfg.color, cfg.hold, rarity);
+  playBand(cfg.label, trait.name, cfg.color, cfg.hold, rarity);
 }
 
 function showAcBanner(left) {
   const n = typeof left === 'number' ? left : 0;
-  playBand('CARE+', n > 0 ? `已换机 · 剩 ${n} 次` : '已换机 · 延保用尽', '#00ff88', 2350, 'epic');
+  const text = n > 0 ? t('band.acSwap', { n }) : t('band.acEmpty');
+  playBand('CARE+', text, '#00ff88', 2350, 'epic');
 }
 
 function playBand(label, name, color, hold, tier) {
@@ -621,11 +623,11 @@ function updateAcUI() {
   btn.classList.toggle('is-armed', !canUp && left > 0);
   btn.classList.toggle('spent', left === 0);
   btn.title = canUp
-    ? `本机最高到过 ${Math.max(bestStage, game.stage)} 阶，延保可升级到 ${target} 次`
-    : `本局还能自动换机 ${left} 次`;
+    ? t('ac.titleUp', { best: Math.max(bestStage, game.stage), target })
+    : t('ac.titleLeft', { n: left });
 
   const sub = btn.querySelector('b');
-  if (sub) sub.textContent = canUp ? `↑ 升 ${target} 次` : `续命 ×${left}`;
+  if (sub) sub.textContent = canUp ? t('ac.subUp', { n: target }) : t('ac.subLeft', { n: left });
 
   // 开局前把「本机历史最高」和升级规则摊开给玩家看；开局后收起，把空间还给日志
   const note = $('careNote');
@@ -635,7 +637,7 @@ function updateAcUI() {
     note.hidden = !showNote;
     if (showNote) {
       const cnBest = $('cnBest');
-      if (cnBest) cnBest.textContent = best > 0 ? `STAGE ${String(best).padStart(2, '0')}` : '暂无记录';
+      if (cnBest) cnBest.textContent = best > 0 ? `STAGE ${String(best).padStart(2, '0')}` : t('care.none');
       const lvTarget = acLevelFor(best);
       note.querySelectorAll('.cn-rule i').forEach((el) => {
         const lv = Number(el.dataset.lv);
@@ -647,7 +649,8 @@ function updateAcUI() {
 }
 
 function updateUI() {
-  $('foldCount').textContent = game.folds;
+  const foldsEl = $('foldsLine');
+  if (foldsEl) foldsEl.innerHTML = t('hud.folds', { n: game.folds });
   $('stageName').textContent = game.stageName;
   $('stageName').classList.toggle('dead', game.broken);
   $('stageSub').textContent = `STAGE ${String(game.stage).padStart(2, '0')} / ${String(MAX_STAGE).padStart(2, '0')}`;
@@ -676,13 +679,13 @@ function updateUI() {
 
   const riskEl = $('risk');
   if (game.broken || game.finished) {
-    riskEl.textContent = game.broken ? '已报废' : '已结算';
+    riskEl.textContent = game.broken ? t('risk.dead') : t('risk.settled');
     riskEl.classList.add('danger');
   } else {
     const pb = game.breakChance(1) * 100;
     const pu = game.upChance() * 100;
     const pf = Math.max(0, 100 - pb - pu);
-    riskEl.textContent = `下一折：碎裂 ${pb.toFixed(1)}%　升阶 ${pu.toFixed(1)}%　白折 ${pf.toFixed(1)}%`;
+    riskEl.textContent = t('risk.next', { b: pb.toFixed(1), u: pu.toFixed(1), f: pf.toFixed(1) });
     riskEl.classList.toggle('danger', pb > 35);
   }
 
@@ -791,7 +794,7 @@ function startAutoFold() {
   hintSuppressed = true;
   syncSwipeHint();
   sfx('up');
-  log('长按锁定：按住不放就一直折，松手即停。');
+  log(t('log.holdLock'));
   autoFoldStep();
 }
 
@@ -805,7 +808,7 @@ function stopAutoFold() {
   targetBend = 0;
   hintSuppressed = false;
   syncSwipeHint();
-  if (!game.broken && !game.finished) log('自动折叠已停。');
+  if (!game.broken && !game.finished) log(t('log.autoStop'));
 }
 
 // ================= 交互：拖拽掰弯 =================
@@ -912,9 +915,9 @@ function doFold(strength) {
     burstShards();
     shakeCamera(0.085);
     log('');
-    log('咔嚓——');
-    log(`「${game.stageName}」，${game.folds} 次折叠。`);
-    log('客服：属人为损坏。');
+    log(t('log.snap'));
+    log(t('log.break', { name: game.stageName, n: game.folds }));
+    log(t('log.support'));
     updateUI();
     setTimeout(showCard, 900);
     return;
@@ -922,10 +925,10 @@ function doFold(strength) {
 
   if (r.result === 'up') {
     sfx('up');
-    log(`升阶！现在是「${game.stageName}」。`);
-    if (game.stage === 4) log('屏幕开始偶发闪烁。有点意思了。');
-    if (game.stage === 5) { sfx('glitch'); log('折线处窜出一缕荧光绿。有人开始夸它好看了。'); }
-    if (game.stage >= 9) log('这已经不能叫手机了。');
+    log(t('log.stageUp', { name: game.stageName }));
+    if (game.stage === 4) log(t('log.stage4'));
+    if (game.stage === 5) { sfx('glitch'); log(t('log.stage5')); }
+    if (game.stage >= 9) log(t('log.stage9'));
   } else if (r.result === 'ac') {
     // 延保自动生效：绿色脉冲 + 绿色粒子 + 强震动
     sfx('glitch');
@@ -938,12 +941,12 @@ function doFold(strength) {
     showAcBanner(r.left);
     log(r.text);
     log(r.left > 0
-      ? `这台机器还能再保 ${r.left} 次。下次再裂，就是 7998 元。`
-      : '这一次延保也用完了。下次再裂，就是 7998 元。');
+      ? t('log.acLeft', { n: r.left })
+      : t('log.acSpent'));
   } else if (r.result === 'guarded') {
-    log(strength > FOLD_THRESHOLD ? '硬扛下来了。铰链再也合不严。' : '');
+    log(strength > FOLD_THRESHOLD ? t('log.guarded') : '');
   } else {
-    log(FLAT_LINES[Math.floor(Math.random() * FLAT_LINES.length)]);
+    log(flatLine());
   }
   if (r.trait) celebrateTrait(r.trait);
   updateUI();
@@ -978,15 +981,15 @@ $('btnAC').addEventListener('click', () => {
   haptic([30, 50, 30, 50, 90]);
   triggerGlow(0xffb020, 1.3);
   burstShards(0xffb020, 60);
-  playBand('CARE+', `延保升级 · ${up.to} 次`, '#ffb020', 1900, 'epic');
-  log(`延保升级成功：这台机器最多能续命 ${up.to} 次（原本 ${up.from} 次）。`);
+  playBand('CARE+', t('band.acUpgrade', { n: up.to }), '#ffb020', 1900, 'epic');
+  log(t('log.acUpgrade', { to: up.to, from: up.from }));
   updateUI();
 });
 
 $('btnStop').addEventListener('click', () => {
   stopAutoFold();
   if (!game.stop()) return;
-  log(`你把手机收回盒子里。${game.folds} 次折叠，到此为止。`);
+  log(t('log.stop', { n: game.folds }));
   updateUI();
   showCard();
 });
@@ -1005,44 +1008,44 @@ function renderBook() {
   const ring = $('ringFg');
   ring.style.strokeDashoffset = String(CIRC * (1 - pct));
   $('ringText').textContent = Math.round(pct * 100) + '%';
-  $('bookProgress').textContent = `已解锁 ${unlocked} / ${total}`;
+  $('bookProgress').textContent = t('book.progress', { u: unlocked, t: total });
 
   $('bookStats').innerHTML = `
-    <div class="book-stat"><b>${a.bestStage}</b><span>最高品阶</span></div>
-    <div class="book-stat"><b>${a.bestFolds}</b><span>最多折叠</span></div>
-    <div class="book-stat"><b>${a.runs}</b><span>折坏台数</span></div>
-    <div class="book-stat"><b>${a.legendary}</b><span>传说词条</span></div>
+    <div class="book-stat"><b>${a.bestStage}</b><span>${t('book.stat.stage')}</span></div>
+    <div class="book-stat"><b>${a.bestFolds}</b><span>${t('book.stat.folds')}</span></div>
+    <div class="book-stat"><b>${a.runs}</b><span>${t('book.stat.runs')}</span></div>
+    <div class="book-stat"><b>${a.legendary}</b><span>${t('book.stat.legendary')}</span></div>
   `;
 
   const groups = [
-    { key: 'legendary', label: '传 说' },
-    { key: 'epic', label: '史 诗' },
-    { key: 'rare', label: '稀 有' },
-    { key: 'common', label: '普 通' },
+    { key: 'legendary' },
+    { key: 'epic' },
+    { key: 'rare' },
+    { key: 'common' },
   ];
 
   $('bookGrid').innerHTML = groups
     .map((g) => {
-      const list = TRAITS.filter((t) => t.rarity === g.key);
+      const list = TRAITS.filter((tr) => tr.rarity === g.key);
       if (!list.length) return '';
-      const got = list.filter((t) => traitCount(a, t.id) > 0).length;
+      const got = list.filter((tr) => traitCount(a, tr.id) > 0).length;
       const cards = list
-        .map((t) => {
-          const n = traitCount(a, t.id);
-          const rar = RARITY[t.rarity];
+        .map((tr) => {
+          const n = traitCount(a, tr.id);
+          const rar = RARITY[tr.rarity];
           const locked = n === 0;
-          const fresh = !locked && freshIds.includes(t.id);
+          const fresh = !locked && freshIds.includes(tr.id);
           return `<div class="book-trait ${locked ? 'locked' : ''} ${fresh ? 'fresh' : ''}">
             <div class="bt-top">
-              <span class="bt-name" style="color:${locked ? 'var(--dim)' : rar.color}">${locked ? '???' : t.name}</span>
+              <span class="bt-name" style="color:${locked ? 'var(--dim)' : rar.color}">${locked ? '???' : tr.name}</span>
               <span class="bt-rarity" style="color:${rar.color}">${rar.label}</span>
             </div>
-            <div class="bt-desc">${locked ? '尚未解锁' : t.desc}</div>
+            <div class="bt-desc">${locked ? t('book.locked') : tr.desc}</div>
             ${locked ? '' : `<div class="bt-count">×${n}${fresh ? '<i class="bt-new">NEW</i>' : ''}</div>`}
           </div>`;
         })
         .join('');
-      return `<div class="book-group">${g.label} · ${got}/${list.length}</div>
+      return `<div class="book-group">${RARITY[g.key].label} · ${got}/${list.length}</div>
               <div class="book-grid">${cards}</div>`;
     })
     .join('');
@@ -1085,7 +1088,9 @@ function showCard() {
   const url = c.toDataURL('image/png');
   $('cardImg').src = url;
   $('dlCard').href = url;
-  $('dlCard').download = `duo-${game.folds}折-${game.stageName}.png`;
+  // 文件名里别留空格和 · ：各系统都对它不友好
+  const slug = game.stageName.replace(/[^\w\u4e00-\u9fff-]+/g, '-').replace(/^-+|-+$/g, '');
+  $('dlCard').download = `duo-${game.folds}-${slug}.png`;
   $('cardModal').hidden = false;
 }
 
@@ -1096,8 +1101,8 @@ $('closeCard').addEventListener('click', () => {
   logs = [];
   logEl.innerHTML = '';
   traitBar.innerHTML = '';
-  log('又一台新机。官方说这次改进了铰链。');
-  log('按住机身，向两侧掰。');
+  log(t('log.newRun'));
+  log(t('log.holdHint'));
   bend = 0;
   targetBend = 0;
   hintSuppressed = false;   // 折叠数归 0，滑动手势指引重新出现
@@ -1235,6 +1240,6 @@ wp.src = './assets/wallpaper-light.jpg';
 initShards();
 layout();
 updateUI();
-log('新机到手。15999 元，和 15999 个不舍得。');
-log('按住机身，向两侧掰。');
+log(t('log.firstRun'));
+log(t('log.holdHint'));
 requestAnimationFrame(tick);
