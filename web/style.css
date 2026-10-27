@@ -382,9 +382,8 @@ html, body {
 .hud-panel {
   position: fixed; left: 0; right: 0; top: 0; z-index: 12;
   padding: 0 0 14px;
-  background: linear-gradient(180deg, rgba(6,8,12,.86) 0%, rgba(6,8,12,.62) 62%, rgba(6,8,12,0) 100%);
-  backdrop-filter: blur(9px);
-  -webkit-backdrop-filter: blur(9px);
+  /* 不用 backdrop-filter：顶部区域每帧重新模糊整条背景，中低端机拖拽时最吃这份开销 */
+  background: linear-gradient(180deg, rgba(6,8,12,.92) 0%, rgba(6,8,12,.72) 58%, rgba(6,8,12,0) 100%);
   pointer-events: none;
 }
 
