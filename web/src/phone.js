@@ -963,33 +963,37 @@ export function createPhone() {
         // 折线处的冷色光学偏移
         col.rgb += vec3(0.005, 0.016, 0.045) * uFold * exp(-d * 22.0);
 
-        // ---- 镜面：磨砂膜被吹风机撕掉后，屏幕变成能映出环境的镜面 ----
+        // ---- 亮面条带反光：磨砂膜被撕掉后，屏幕像一块裸玻璃板 ----
         if (uGloss > 0.01) {
           vec3 N = normalize(vN);
           vec3 V = normalize(vV);
           vec3 R = reflect(-V, N);
 
-          // 程序化环境：上半天光、下半地影
-          float sky = clamp(R.y * 0.5 + 0.5, 0.0, 1.0);
-          vec3 env = mix(vec3(0.045, 0.055, 0.075), vec3(0.46, 0.60, 0.80), sky);
+          // 反光条带的位置跟着视角走：机身一倾斜，白光带就滑过去
+          float shift = R.x * 0.34 + R.y * 0.18;
 
-          // 环境里的两盏灯（一强一弱，位置错开，形成镜面上常见的双高光）
-          float lampA = pow(max(0.0, dot(R, normalize(vec3(0.42, 0.86, 0.30)))), 14.0);
-          env += vec3(1.0) * lampA * 1.05;
-          float lampB = pow(max(0.0, dot(R, normalize(vec3(-0.72, 0.34, 0.42)))), 26.0);
-          env += vec3(0.82, 0.90, 1.0) * lampB * 0.85;
+          // 斜向轴（约 30 度），三条不同宽度的白光带叠在画面上
+          float axis = vUv.y + vUv.x * 0.52 + shift;
 
-          // 折线处曲面更容易吃到光，尤其在折叠时会拉出反光带
-          env += vec3(0.55, 0.70, 0.95) * exp(-d * 10.0) * 0.35;
+          float bandA = smoothstep(0.015, 0.085, axis) * smoothstep(0.255, 0.185, axis);
+          float bandB = smoothstep(0.395, 0.445, axis) * smoothstep(0.565, 0.515, axis);
+          float bandC = smoothstep(0.700, 0.735, axis) * smoothstep(0.815, 0.780, axis);
 
-          // 镜面混合：内容整体压暗一点，再叠上反射，才像「一层玻璃盖在画面上面」
-          vec3 mirrored = col.rgb * 0.70 + env * 0.82;
+          float bands = bandA * 0.30 + bandB * 0.17 + bandC * 0.10;
 
-          // 菲涅尔：正面看以内容为主，掠射角几乎全反射
+          // 菲涅尔：掠射角时整片玻璃泛起冷白
           float ndv = clamp(abs(dot(N, V)), 0.0, 1.0);
-          float fres = pow(1.0 - ndv, 2.4);
-          float strength = uGloss * clamp(0.22 + fres * 0.72, 0.0, 1.0);
-          col.rgb = mix(col.rgb, mirrored, min(strength, 0.74));
+          float fres = pow(1.0 - ndv, 3.0) * 0.22;
+
+          // 折线处的曲面最容易吃光
+          float crease = exp(-d * 9.0) * 0.14;
+
+          float sheen = clamp(bands + fres + crease, 0.0, 1.0) * uGloss;
+
+          // 白带是「加光」而不是「盖白」：底下内容仍在，只是被照亮
+          col.rgb += vec3(0.90, 0.955, 1.0) * sheen;
+          // 轻微提饱和，玻璃反光会让画面显得更通透
+          col.rgb = mix(col.rgb, col.rgb * vec3(1.02, 1.01, 1.0), sheen * 0.5);
         }
 
         // 圆角裁切：透明区域直接丢弃，露出机身
