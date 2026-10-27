@@ -151,14 +151,15 @@ function sfx(type) {
 
 // ================= Three.js 场景 =================
 const canvas = $('scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.30;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x08090b);
+// 背景交给 CSS：纯黑底色没有暗部空间，所有浮层只能靠亮度区分，层次立不起来
+scene.background = null;
 
 const camera = new THREE.PerspectiveCamera(35, 1, 0.8, 20);
 camera.position.set(0, 0, 9.5);
@@ -326,6 +327,23 @@ glowSprite.scale.set(3.2, 3.2, 1);
 scene.add(glowSprite);
 
 const glowState = { active: false, t: 0, dur: 1.0 };
+
+// 常驻背光：让模型从背景里"浮"出来，而不是贴在一块死板上
+const ambGlow = new THREE.Sprite(
+  new THREE.SpriteMaterial({
+    map: makeGlowTexture(),
+    color: 0x2a4a72,
+    transparent: true,
+    opacity: 0.5,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: false,
+    toneMapped: false,
+  })
+);
+ambGlow.position.set(0, 0.1, -1.6);
+ambGlow.scale.set(6.2, 5.4, 1);
+scene.add(ambGlow);
 
 function triggerGlow(hex, dur) {
   glowSprite.material.color.set(hex);
