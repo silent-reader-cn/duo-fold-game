@@ -3,6 +3,11 @@ name: Deploy web build to GitHub Pages
 # 游戏在 web/ 子目录，而 Pages 只能发布仓库根或 /docs，
 # 所以这里把 web/ 单独作为静态产物上传，站点地址固定为
 # https://<owner>.github.io/<repo>/
+#
+# 前置条件：仓库的 Pages 必须已存在（build_type = workflow）。
+# 用 GITHUB_TOKEN 建不了（会报 Resource not accessible by integration），
+# 需要管理员跑一次：
+#   gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow
 
 on:
   push:
@@ -30,20 +35,17 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      # enablement: 首次部署时自动把仓库 Pages 打开（Source = GitHub Actions）
       - name: Setup Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
+        uses: actions/configure-pages@v6
 
       # 只上传 web/：docs、.github 都不进站点
       - name: Upload web/ as Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: web
 
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
