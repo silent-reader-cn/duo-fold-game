@@ -840,6 +840,61 @@ function makeCanvas(w, h) {
   return c;
 }
 
+// ---------------- 屏幕画布 → 纹理：异步零拷贝快照上传 ----------------
+/**
+ * 把 2048x1462 的 GPU 加速画布直接 texImage2D 成纹理，在 ANGLE/D3D11 上要走同步回读，
+ * 实测一次 50~100ms —— 刚好踩在「折叠松手」与「高阶故障每 0.18s 整屏重绘」的节拍上。
+ * 改为先用 createImageBitmap 抓一份快照、下一帧再上传，主线程不再等这次拷贝。
+ *
+ * 快照选项必须是 premultiplyAlpha:'default' + 不翻转：指定 'none'（反预乘）或 flipY
+ * 会让 Chrome 逐像素转换 300 万像素，同步阻塞 12~20ms，等于把卡顿换个地方；
+ * 两者都保持默认时快照是零拷贝的（实测 0.1ms）。
+ * 代价是纹理不再经过 GL 的 UNPACK_FLIP_Y 翻转，翻转改由采样坐标补偿（见 shader 与 uv）。
+ */
+function makeScreenUploader(tex, canvas) {
+  let busy = false;
+  let queued = false;
+  let prevBm = null;
+  let asyncOk = typeof createImageBitmap === 'function';
+
+  // 纹理与快照同为「不翻转」，两条上传路径方向才一致
+  tex.flipY = false;
+
+  const OPTS = { premultiplyAlpha: 'default', colorSpaceConversion: 'none', imageOrientation: 'none' };
+
+  // 上一份快照要等这次上传真正发生、GPU 采样完之后才能回收
+  tex.onUpdate = () => {
+    if (prevBm && prevBm.close) prevBm.close();
+    prevBm = tex.image && tex.image.close ? tex.image : null;
+  };
+
+  function uploadSync() {
+    tex.image = canvas;
+    tex.needsUpdate = true;
+  }
+
+  function pump() {
+    if (!asyncOk) { uploadSync(); return; }
+    if (busy) { queued = true; return; }
+    busy = true;
+    queued = false;
+    createImageBitmap(canvas, OPTS).then((bm) => {
+      busy = false;
+      tex.image = bm;
+      tex.needsUpdate = true;
+      if (queued) pump();
+    }, () => {
+      // 环境不支持（老 Safari 等）就退回同步上传：慢，但画面正确
+      busy = false;
+      asyncOk = false;
+      uploadSync();
+      queued = false;
+    });
+  }
+
+  return { request: pump, uploadSync };
+}
+
 // ---------------- 组装 3D 手机 ----------------
 export function createPhone() {
   const group = new THREE.Group();
@@ -891,6 +946,7 @@ export function createPhone() {
   const texInner = new THREE.CanvasTexture(canvasInner);
   texInner.colorSpace = THREE.SRGBColorSpace;
   texInner.anisotropy = 8;
+  const innerUpload = makeScreenUploader(texInner, canvasInner);
 
   const Z_SCREEN = THICK / 2 + 0.008;
   // 弯曲半径由机身厚度几何决定：弦长 THICK·sin(b) ↔ 圆心角 2b ⇒ R = THICK/2
@@ -942,8 +998,10 @@ export function createPhone() {
         }
 
         // 折线附近：内容被压缩（透视感）
+        // vUv.y 取反：纹理走的是不翻转上传（见 makeScreenUploader），这里把行序补回来。
+        // 只翻转采样坐标，vUv 本身留给反光条带与折痕计算，几何口径不变。
         float squeeze = uFold * 0.018 * exp(-d * 30.0);
-        vec2 uv = vec2(0.5 + (vUv.x - 0.5) * (1.0 - squeeze), vUv.y);
+        vec2 uv = vec2(0.5 + (vUv.x - 0.5) * (1.0 - squeeze), 1.0 - vUv.y);
 
         // 渐变模糊：越靠近折线越糊
         float blur = uFold * (0.0006 + 0.004 * exp(-d * 26.0));
@@ -1095,11 +1153,17 @@ export function createPhone() {
   const coverTex = new THREE.CanvasTexture(coverCanvas);
   coverTex.colorSpace = THREE.SRGBColorSpace;
   coverTex.anisotropy = 8;
+  const coverUpload = makeScreenUploader(coverTex, coverCanvas);
   // 外屏必须按「单侧机身」尺寸算，否则会超出背板
   const coverW = HALF_W * 0.955;   // 窄边框，与内屏 2mm 口径对齐
   const coverH = Math.min(coverW * (SH / SW), HEIGHT * 0.955);
+  // 外屏纹理同样走不翻转上传 → 把 uv 的 v 轴翻过来对齐（只影响采样，不动几何）
+  const coverGeo = new THREE.PlaneGeometry(coverW, coverH);
+  const coverUv = coverGeo.attributes.uv;
+  for (let i = 0; i < coverUv.count; i++) coverUv.setY(i, 1 - coverUv.getY(i));
+  coverUv.needsUpdate = true;
   const coverScreen = new THREE.Mesh(
-    new THREE.PlaneGeometry(coverW, coverH),
+    coverGeo,
     new THREE.MeshBasicMaterial({
       map: coverTex, toneMapped: false, transparent: true, alphaTest: 0.5,
     })
@@ -1188,20 +1252,31 @@ export function createPhone() {
     screenMesh.visible = foldRatio < 0.75;
   }
 
+  // 2D 上下文复用：原来每次重绘都 getContext 一次
+  const ci = canvasInner.getContext('2d');
+  const cc = coverCanvas.getContext('2d');
+  let firstDraw = true;
+
   function updateScreen(state) {
-    const ci = canvasInner.getContext('2d');
     ci.setTransform(SS, 0, 0, SS, 0, 0);
     ci.clearRect(0, 0, CW, CH);
     drawScreen(ci, state);
-    texInner.needsUpdate = true;
     // 吹风机撕掉磨砂涂层 → 屏幕变亮面，反光强度直接拉满
     screenMat.uniforms.uGloss.value = state.matte ? 0 : 1;
 
-    const cc = coverCanvas.getContext('2d');
     cc.setTransform(SS, 0, 0, SS, 0, 0);
     cc.clearRect(0, 0, SW, SH);
     drawCover(cc, state);
-    coverTex.needsUpdate = true;
+
+    if (firstDraw) {
+      // 首帧必须同步上传，否则手机会空屏一帧
+      firstDraw = false;
+      innerUpload.uploadSync();
+      coverUpload.uploadSync();
+    } else {
+      innerUpload.request();
+      coverUpload.request();
+    }
   }
 
   return { group, setBend, updateScreen, getBend: () => curBend, leftPivot, rightPivot, coverCanvas, canvasInner, screenMesh };
