@@ -1026,14 +1026,15 @@ body::after {
 }
 
 /* 成就卡：浮起 + 外发光脉冲
-   发光颜色跟着卡面最高稀有度走（main.js 写 data-rarity），与成就页词条卡同一套色 */
+   发光颜色跟卡面主题色走 —— 主题色 = 评级色（S金/A紫/B蓝/C绿/D灰），main.js 写 data-grade。
+   稀有度只体现在词条胶囊上，不再决定整卡颜色。 */
 .sheet img { --card-glow: rgba(40, 110, 180, .35); }
-.sheet img[data-rarity="common"]    { --card-glow: rgba(170, 180, 196, .24); }
-.sheet img[data-rarity="rare"]      { --card-glow: rgba(74, 163, 255, .42); }
-.sheet img[data-rarity="epic"]      { --card-glow: rgba(183, 107, 255, .48); }
-.sheet img[data-rarity="legendary"] { --card-glow: rgba(255, 176, 32, .52); }
-.sheet img[data-rarity="broken"]    { --card-glow: rgba(255, 77, 94, .46); }
-.sheet img[data-rarity="clean"]     { --card-glow: rgba(0, 255, 136, .32); }
+.sheet img[data-grade="S"]      { --card-glow: rgba(255, 176, 32, .52); }
+.sheet img[data-grade="A"]      { --card-glow: rgba(183, 107, 255, .48); }
+.sheet img[data-grade="B"]      { --card-glow: rgba(74, 163, 255, .44); }
+.sheet img[data-grade="C"]      { --card-glow: rgba(0, 255, 136, .34); }
+.sheet img[data-grade="D"]      { --card-glow: rgba(154, 160, 168, .28); }
+.sheet img[data-grade="broken"] { --card-glow: rgba(255, 77, 94, .46); }
 .sheet img {
   animation: cardFloat 5.6s ease-in-out infinite, cardGlow 5.6s ease-in-out infinite;
 }

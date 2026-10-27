@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Game, MAX_STAGE, FAN_MAX, SAND_MAX, flatLine, TRAIT_MAP, RARITY, TRAITS, acLevelFor, HOLD_MS, HOLD_FIRST_DELAY, holdPulseMs, holdPulseGap } from './logic.js';
 import { createPhone, makeEnvironment, setWallpaper } from './phone.js';
-import { makeCard } from './card.js';
+import { makeCard, gradeOf } from './card.js';
 import { t, applyStatic } from './i18n.js';
 import { loadAch, loadAcMax, saveAcMax, recordRun, traitCount, unseenCount, markSeen } from './achievements.js';
 
@@ -1073,7 +1073,7 @@ function showCard() {
   const ach = recordRun(game, game.traits.some((id) => TRAIT_MAP[id].rarity === 'legendary'));
   bestStage = ach.bestStage;   // 本机最高品阶：延保能升级到几次看它
   syncBookDot();               // 有新解锁 → 成就入口点小红点
-  const c = makeCard({
+  const cardState = {
     stage: game.stage,
     stageName: game.stageName,
     stageMax: MAX_STAGE,
@@ -1085,17 +1085,12 @@ function showCard() {
     quote: game.pickQuote(),
     serial: `No.${String(1000 + game.folds * 7 + game.stage * 13).padStart(4, '0')}`,
     traits: game.traits.map((id) => TRAIT_MAP[id]).filter(Boolean),
-  });
+  };
+  const c = makeCard(cardState);
   const url = c.toDataURL('image/png');
   $('cardImg').src = url;
-  // 弹窗里那张图的外发光跟着最高稀有度走：和成就页词条卡同一套色
-  const rorder = { common: 0, rare: 1, epic: 2, legendary: 3 };
-  let topR = '';
-  for (const id of game.traits) {
-    const r = TRAIT_MAP[id] && TRAIT_MAP[id].rarity;
-    if (r && (!topR || rorder[r] > rorder[topR])) topR = r;
-  }
-  $('cardImg').dataset.rarity = game.broken ? 'broken' : topR || 'clean';
+  // 弹窗里那张图的外发光跟卡面主题色（= 评级色）一致，不再跟稀有度走
+  $('cardImg').dataset.grade = game.broken ? 'broken' : gradeOf(cardState);
   $('dlCard').href = url;
   // 文件名里别留空格和 · ：各系统都对它不友好
   const slug = game.stageName.replace(/[^\w\u4e00-\u9fff-]+/g, '-').replace(/^-+|-+$/g, '');

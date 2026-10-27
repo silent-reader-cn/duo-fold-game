@@ -171,25 +171,26 @@ function rr(ctx, x, y, w, h, r) {
 // ink=文字/圆点主色（提亮版） l1..l2=描边渐变 fill=底色+辉光 lw=描边粗细 glow=辉光半径
 // 渐变端点都收在同一个色相里（不跑青、不跑洋红），贴着 RARITY[].color 这个「代表色」
 const RSKIN = {
-  common:    { ink: '#cbd2dc', l1: '#b9c2d0', l2: '#7d8595', fill: [154, 160, 168], lw: 1.6, glow: 0,
+  common:    { ink: '#cbd2dc', l1: '#b9c2d0', l2: '#7d8595', fill: [154, 160, 168], hex: '#9aa0a8', lw: 1.6, glow: 0,
                bg1: [23, 27, 33], mid: [13, 16, 20], bg2: [7, 9, 12] },
-  rare:      { ink: '#7cc8ff', l1: '#9ad8ff', l2: '#2f7ff0', fill: [74, 163, 255], lw: 2.0, glow: 15,
+  rare:      { ink: '#7cc8ff', l1: '#9ad8ff', l2: '#2f7ff0', fill: [74, 163, 255], hex: '#4aa3ff', lw: 2.0, glow: 15,
                bg1: [24, 38, 56], mid: [12, 18, 28], bg2: [6, 9, 15] },
-  epic:      { ink: '#cf9bff', l1: '#d9a6ff', l2: '#7f3fd8', fill: [183, 107, 255], lw: 2.4, glow: 24,
+  epic:      { ink: '#cf9bff', l1: '#d9a6ff', l2: '#7f3fd8', fill: [183, 107, 255], hex: '#b76bff', lw: 2.4, glow: 24,
                bg1: [33, 25, 46], mid: [16, 12, 25], bg2: [7, 6, 12] },
-  legendary: { ink: '#ffd15c', l1: '#ffe08a', l2: '#e08a15', fill: [255, 176, 32], lw: 3.0, glow: 34,
+  legendary: { ink: '#ffd15c', l1: '#ffe08a', l2: '#e08a15', fill: [255, 176, 32], hex: '#ffb020', lw: 3.0, glow: 34,
                bg1: [39, 32, 18], mid: [18, 14, 9], bg2: [8, 7, 4] },
 };
 // 碎裂 / 无词条时也得有自己的一套，别让外框和整卡底色掉成灰白
-const BROKEN_SKIN = { ink: '#ff9aa4', l1: '#ffc2c8', l2: '#d0323f', fill: [255, 77, 94], lw: 2.4, glow: 22,
+const BROKEN_SKIN = { ink: '#ff9aa4', l1: '#ffc2c8', l2: '#d0323f', fill: [255, 77, 94], hex: '#ff4d5e', lw: 2.4, glow: 22,
                       bg1: [38, 20, 24], mid: [19, 11, 13], bg2: [8, 5, 6] };
-const CLEAN_SKIN  = { ink: '#7dffbd', l1: '#a6ffd4', l2: '#00b862', fill: [0, 255, 136], lw: 2.0, glow: 16,
+const CLEAN_SKIN  = { ink: '#7dffbd', l1: '#a6ffd4', l2: '#00b862', fill: [0, 255, 136], hex: '#00ff88', lw: 2.0, glow: 16,
                       bg1: [19, 33, 27], mid: [10, 18, 15], bg2: [5, 9, 8] };
 const RAR_DESC = { legendary: 0, epic: 1, rare: 2, common: 3 };
 const rgba = ([r, g, b], a) => `rgba(${r},${g},${b},${a})`;
 const rgbStr = ([r, g, b]) => `rgb(${r},${g},${b})`;
 
-/** 综合评级：品阶 + 折叠数 + 稀有词条权重 */
+/** 综合评级：品阶 + 折叠数 + 稀有词条权重
+ *  卡面的主题色跟评级走（卡上最醒目的是那个评级字母），稀有度只体现在词条胶囊上 */
 function grade(st) {
   const cnt = (r) => (st.traits || []).filter((t) => t.rarity === r).length;
   const score =
@@ -202,7 +203,17 @@ function grade(st) {
   if (score >= 108) return { g: 'A', color: '#b76bff' };
   if (score >= 82) return { g: 'B', color: '#4aa3ff' };
   if (score >= 52) return { g: 'C', color: '#00ff88' };
-  return { g: 'D', color: '#8d939e' };
+  return { g: 'D', color: '#9aa0a8' };
+}
+
+// 评级 → 皮肤：S 金 / A 紫 / B 蓝 / C 绿 / D 灰，正好复用稀有度那几套色阶
+const GRADE_SKIN = { S: RSKIN.legendary, A: RSKIN.epic, B: RSKIN.rare, C: CLEAN_SKIN, D: RSKIN.common };
+// 花纹密度仍按最高稀有度：传说词条更繁复，但用的是评级色，不会撞色
+const ORN_BY_RARITY = { legendary: 'classic', epic: 'geo', rare: 'line', common: 'none' };
+
+/** 供外部（弹窗光晕）复用同一套评级判定 */
+export function gradeOf(st) {
+  return grade(st).g;
 }
 
 /**
@@ -225,10 +236,11 @@ export function makeCard(st) {
   for (const t of traits) {
     if (!topRarity || order[t.rarity] > order[topRarity]) topRarity = t.rarity;
   }
-  // 代表色：外框、刻度、页眉、整卡底色全部由它派生，四档不再是同一张蓝黑底
-  const accent = st.broken ? '#ff4d5e' : topRarity ? RARITY[topRarity].color : '#00ff88';
-  const skinMain = st.broken ? BROKEN_SKIN : topRarity ? RSKIN[topRarity] : CLEAN_SKIN;
+  // 主题色 = 评级色（碎裂另算）：底色、外框、页眉、刻度、花纹全由它派生，
+  // 这样卡片上不会出现「紫 A 配金卡面」这种两个色轴打架的情况
   const gr = grade(st);
+  const skinMain = st.broken ? BROKEN_SKIN : GRADE_SKIN[gr.g];
+  const accent = skinMain.hex;
 
   // ================= 底色（整卡染色）=================
   const bg = ctx.createLinearGradient(0, 0, W * 0.35, H);
@@ -270,7 +282,7 @@ export function makeCard(st) {
   // 外框（双线）：描边走「最高稀有度」的渐变，越稀有越粗越亮，还带一圈外发光
   const frameSkin = skinMain;
   // 花纹分档：传说=古典（回纹/花带/徽记），史诗=几何菱格，稀有=双线，普通=素面
-  const orn = topRarity ? { legendary: 'classic', epic: 'geo', rare: 'line', common: 'none' }[topRarity] : 'none';
+  const orn = topRarity ? ORN_BY_RARITY[topRarity] : 'none';
 
   if (orn === 'classic' || orn === 'geo') patternField(ctx, W, H, frameSkin, orn);
   const fg = ctx.createLinearGradient(24, 24, W - 24, H - 24);
