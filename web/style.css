@@ -545,22 +545,7 @@ body::after {
 /* 全局激励量：折叠时为 0~1，由 JS 每帧写入，用来同步放大所有呼吸效果 */
 :root { --excite: 0; }
 
-/* 背景呼吸层（在画布之下） */
-body::before {
-  content: '';
-  position: fixed; inset: -12%; z-index: 0; pointer-events: none;
-  background:
-    radial-gradient(58% 42% at 50% 24%, rgba(66, 132, 194, .26), transparent 70%),
-    radial-gradient(44% 38% at 50% 80%, rgba(94, 58, 156, .18), transparent 72%);
-  animation: bgBreathe 7s ease-in-out infinite;
-  will-change: transform, opacity;
-}
-@keyframes bgBreathe {
-  0%, 100% { transform: scale(1); opacity: .5; }
-  50% {
-    transform: scale(calc(1.07 + var(--excite, 0) * 0.07));
-    opacity: calc(.78 + var(--excite, 0) * .18);
-  }
+
 }
 
 /* 品阶徽章：辉光呼吸 */
@@ -628,3 +613,73 @@ body::before {
     animation: none !important;
   }
 }
+
+
+/* ================= 背景动效层 ================= */
+.bg-fx {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  overflow: hidden;
+}
+
+/* 漂浮光斑：三个不同速度、不同色相的大光团，缓慢游动 */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  will-change: transform, opacity;
+}
+.o1 {
+  width: 78vmax; height: 78vmax;
+  left: -26vmax; top: -34vmax;
+  background: radial-gradient(circle, rgba(58, 128, 198, .55), rgba(36, 78, 128, .18) 55%, transparent 72%);
+  opacity: calc(.30 + var(--excite, 0) * .34);
+  animation: drift1 26s ease-in-out infinite;
+}
+.o2 {
+  width: 62vmax; height: 62vmax;
+  right: -24vmax; bottom: -26vmax;
+  background: radial-gradient(circle, rgba(102, 62, 168, .50), rgba(62, 38, 102, .16) 55%, transparent 72%);
+  opacity: calc(.26 + var(--excite, 0) * .32);
+  animation: drift2 34s ease-in-out infinite;
+}
+.o3 {
+  width: 48vmax; height: 48vmax;
+  left: 26vmax; bottom: -22vmax;
+  background: radial-gradient(circle, rgba(28, 118, 118, .40), transparent 70%);
+  opacity: calc(.20 + var(--excite, 0) * .30);
+  animation: drift3 20s ease-in-out infinite;
+}
+
+@keyframes drift1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33%      { transform: translate3d(7vmax, 5vmax, 0) scale(1.12); }
+  66%      { transform: translate3d(-4vmax, 9vmax, 0) scale(.96); }
+}
+@keyframes drift2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.04); }
+  40%      { transform: translate3d(-8vmax, -6vmax, 0) scale(.94); }
+  70%      { transform: translate3d(5vmax, -10vmax, 0) scale(1.14); }
+}
+@keyframes drift3 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(.98); }
+  50%      { transform: translate3d(-7vmax, -8vmax, 0) scale(1.18); }
+}
+
+/* 星点层：极缓慢向上流动，折叠时更快更亮 */
+.stars {
+  position: absolute; inset: -25% -10%;
+  background-image:
+    radial-gradient(circle, rgba(210, 228, 255, .55) 1px, transparent 1.6px),
+    radial-gradient(circle, rgba(160, 200, 255, .32) 1px, transparent 1.4px);
+  background-size: 130px 130px, 210px 210px;
+  background-position: 0 0, 60px 90px;
+  opacity: calc(.22 + var(--excite, 0) * .38);
+  animation: starFlow 46s linear infinite;
+}
+@keyframes starFlow {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-420px); }
+}
+
+/* 折叠时整体提亮（光斑与星点已由 --excite 控制透明度） */
+.bg-fx { transition: filter .3s ease; }
