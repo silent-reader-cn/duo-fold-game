@@ -9,113 +9,6 @@ let starsEl = null;
 requestAnimationFrame(() => { starsEl = document.querySelector('.stars'); });
 
 
-// ================= 背景音乐（Web Audio 合成，无外部素材） =================
-// 三音空灵动机 "da-mi-a" + 低频 pad + 反馈延迟混响
-const BGM_MELODY = [440.0, 523.25, 659.25];   // A4 / C5 / E5（A 小三和弦）
-const BGM_PAD = [110.0, 164.81];              // A2 / E3
-let bgm = null;
-let bgmWanted = true;
-
-function startBgm() {
-  if (bgm || !bgmWanted) return;
-  let acx;
-  try { acx = ac(); } catch (e) { return; }
-
-  const master = acx.createGain();
-  master.gain.setValueAtTime(0.0001, acx.currentTime);
-  master.gain.exponentialRampToValueAtTime(0.085, acx.currentTime + 4);  // 缓入
-  master.connect(acx.destination);
-
-  // 反馈延迟当混响用
-  const delay = acx.createDelay(1.0);
-  delay.delayTime.value = 0.34;
-  const fb = acx.createGain();
-  fb.gain.value = 0.36;
-  const wet = acx.createGain();
-  wet.gain.value = 0.32;
-  delay.connect(fb);
-  fb.connect(delay);
-  delay.connect(wet);
-  wet.connect(master);
-
-  bgm = { acx, master, delay, next: acx.currentTime + 0.25, step: 0 };
-  setInterval(scheduleBgm, 400);
-}
-
-function bgmSing(t, freq, dur) {
-  const { acx, master, delay } = bgm;
-  const g = acx.createGain();
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.17, t + 0.09);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  g.connect(master);
-  g.connect(delay);
-
-  for (const det of [1, 1.0045]) {
-    const o = acx.createOscillator();
-    o.type = 'sine';
-    o.frequency.value = freq * det;
-    o.connect(g);
-    o.start(t);
-    o.stop(t + dur + 0.1);
-  }
-  // 颤音：模拟人声的微微抖动
-  const lfo = acx.createOscillator();
-  lfo.frequency.value = 5.1;
-  const lg = acx.createGain();
-  lg.gain.value = 2.2;
-  lfo.connect(lg);
-  // 接到第一个振荡器需要单独建，这里给整体加轻微频率调制
-  lg.connect(g.gain);
-  lfo.start(t);
-  lfo.stop(t + dur + 0.1);
-}
-
-function bgmPad(t) {
-  const { acx, master } = bgm;
-  const g = acx.createGain();
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.055, t + 1.4);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 5.6);
-  g.connect(master);
-  for (const f of BGM_PAD) {
-    const o = acx.createOscillator();
-    o.type = 'triangle';
-    o.frequency.value = f;
-    o.connect(g);
-    o.start(t);
-    o.stop(t + 5.7);
-  }
-}
-
-function scheduleBgm() {
-  if (!bgm) return;
-  const now = bgm.acx.currentTime;
-  while (bgm.next < now + 2.2) {
-    const t = bgm.next;
-    const i = bgm.step % 3;
-    bgmSing(t, BGM_MELODY[i], 1.5);
-    if (i === 0) bgmPad(t);
-    bgm.step += 1;
-    bgm.next += 0.66;      // 缓慢三连音
-  }
-}
-
-function setBgm(on) {
-  bgmWanted = on;
-  if (!on && bgm) {
-    const { acx, master } = bgm;
-    master.gain.cancelScheduledValues(acx.currentTime);
-    master.gain.setValueAtTime(master.gain.value, acx.currentTime);
-    master.gain.exponentialRampToValueAtTime(0.0001, acx.currentTime + 0.8);
-    const old = bgm;
-    setTimeout(() => { old.master.disconnect(); }, 1200);
-    bgm = null;
-  } else if (on) {
-    startBgm();
-  }
-}
-
 // ================= 背景尘埃粒子（canvas，逐颗随机） =================
 const DUST_N = 230;   // 密度先够，再谈随机
 let dustCanvas = null;
@@ -751,7 +644,6 @@ const BEND_BACK = 0.58;           // 反向掰的上限
 const FOLD_THRESHOLD = 0.34;      // 超过这个幅度松手算一次折叠
 
 canvas.addEventListener('pointerdown', (e) => {
-  startBgm();   // 浏览器要求首次交互后才能出声
   if (game.broken || game.finished) return;
   dragging = true;
   dragStartX = e.clientX;
@@ -889,11 +781,6 @@ $('btnStop').addEventListener('click', () => {
   log(`你把手机收回盒子里。${game.folds} 次折叠，到此为止。`);
   updateUI();
   showCard();
-});
-
-$('btnBgm').addEventListener('click', () => {
-  setBgm(!bgmWanted || !bgm);
-  $('btnBgm').classList.toggle('off', !bgmWanted);
 });
 
 // ================= 成就手册 =================
@@ -1102,9 +989,7 @@ function tick(now) {
 
 initDust();
 
-window.__duo = { scene, camera, phone, renderer, THREE, game, envTex, band: playBand,
-  get bgmState() { return bgm ? { running: bgm.acx.state, step: bgm.step } : { running: 'off', step: 0 }; },
-  bgmToggle: (v) => setBgm(v) };
+window.__duo = { scene, camera, phone, renderer, THREE, game, envTex, band: playBand };
 
 // 壁纸（加载完成后重绘一次屏幕）
 const wp = new Image();

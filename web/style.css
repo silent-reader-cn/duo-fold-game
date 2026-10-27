@@ -676,12 +676,3 @@ body::after {
   opacity: calc(.55 + var(--excite, 0) * .40);
   transition: opacity .3s ease;
 }
-
-
-/* 音乐开关 */
-.bgm-btn {
-  font-size: 15px; line-height: 1;
-  padding: 5px 10px !important;
-  min-width: 34px;
-}
-.bgm-btn.off { opacity: .42; }
