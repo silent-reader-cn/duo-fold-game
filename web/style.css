@@ -665,21 +665,23 @@ body::after {
   50%      { transform: translate3d(-7vmax, -8vmax, 0) scale(1.18); }
 }
 
-/* 星点层：极缓慢向上流动，折叠时更快更亮 */
-.stars {
-  position: absolute; inset: -25% -10%;
-  background-image:
-    radial-gradient(circle, rgba(210, 228, 255, .55) 1px, transparent 1.6px),
-    radial-gradient(circle, rgba(160, 200, 255, .32) 1px, transparent 1.4px);
-  background-size: 130px 130px, 210px 210px;
-  background-position: 0 0, 60px 90px;
-  opacity: calc(.22 + var(--excite, 0) * .38);
-  animation: starFlow 46s linear infinite;
-}
-@keyframes starFlow {
-  from { transform: translateY(0); }
-  to   { transform: translateY(-420px); }
-}
-
 /* 折叠时整体提亮（光斑与星点已由 --excite 控制透明度） */
 .bg-fx { transition: filter .3s ease; }
+
+
+/* 尘埃粒子层（canvas 逐颗绘制，位置/大小/速度全部随机） */
+.dust {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  opacity: calc(.55 + var(--excite, 0) * .40);
+  transition: opacity .3s ease;
+}
+
+
+/* 音乐开关 */
+.bgm-btn {
+  font-size: 15px; line-height: 1;
+  padding: 5px 10px !important;
+  min-width: 34px;
+}
+.bgm-btn.off { opacity: .42; }
