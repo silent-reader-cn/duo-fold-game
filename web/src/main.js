@@ -7,6 +7,7 @@ import { loadAch, loadAcMax, saveAcMax, recordRun, traitCount, unseenCount, mark
 
 const $ = (id) => document.getElementById(id);
 let starsEl = null;
+let stageTagEl = null;
 let lastAppliedBend = 1e9;   // 形变去重，同一角度不重复计算
 let dustAcc = 0;
 requestAnimationFrame(() => { starsEl = document.querySelector('.stars'); });
@@ -134,6 +135,15 @@ function tone(acx, freq, dur, vol, shape, at, glide) {
   o.connect(g).connect(acx.destination);
   o.start(at);
   o.stop(at + dur + 0.02);
+}
+
+// AudioContext 首次创建要初始化音频设备（本机实测 ~240ms，主线程同步）——
+// 这笔开销不能等到「第一次折叠」才付，那会变成每局开头的可见卡顿。
+// 加载完先把它建出来（此时必然是 suspended），第一次按下时 ac() 里再 resume。
+function prewarmAudio() {
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (e) { /* 不支持就静默 */ }
 }
 
 function sfx(type) {
@@ -480,7 +490,11 @@ function log(msg) {
 const traitBar = $('traits');
 const RAR_ORDER = { legendary: 0, epic: 1, rare: 2, common: 3 };
 
+let traitsKeyCache = null;
 function updateTraitsUI() {
+  const key = game.traits.join('|');
+  if (key === traitsKeyCache) return;      // 折叠本身不改词条，没必要每次重建整条
+  traitsKeyCache = key;
   // 高稀有度排在前面，视觉上先看到珍贵的那几个
   const sorted = [...game.traits].sort(
     (a, b) => RAR_ORDER[TRAIT_MAP[a].rarity] - RAR_ORDER[TRAIT_MAP[b].rarity]
@@ -648,9 +662,24 @@ function updateAcUI() {
   }
 }
 
+// 折叠计数：模板只渲染一次，之后只改 <b> 里的数字
+// （每折 innerHTML 重建会连带 1 次解析 + 1 次样式/布局）
+let foldsNode = null;
+function syncFoldsLine() {
+  const wrap = $('foldsLine');
+  if (!wrap) return;
+  if (!foldsNode || foldsNode.parentNode !== wrap) {
+    wrap.innerHTML = t('hud.folds', { n: game.folds });
+    foldsNode = wrap.querySelector('b');
+    if (foldsNode) foldsNode._v = String(game.folds);
+    return;
+  }
+  const v = String(game.folds);
+  if (foldsNode._v !== v) { foldsNode._v = v; foldsNode.textContent = v; }
+}
+
 function updateUI() {
-  const foldsEl = $('foldsLine');
-  if (foldsEl) foldsEl.innerHTML = t('hud.folds', { n: game.folds });
+  syncFoldsLine();
   $('stageName').textContent = game.stageName;
   $('stageName').classList.toggle('dead', game.broken);
   $('stageSub').textContent = `STAGE ${String(game.stage).padStart(2, '0')} / ${String(MAX_STAGE).padStart(2, '0')}`;
@@ -664,8 +693,11 @@ function updateUI() {
     : game.stage >= 5 ? '#b76bff'
     : game.stage >= 3 ? '#4aa3ff'
     : '#00ff88';
-  const tag = document.querySelector('.stagetag');
-  if (tag) tag.style.setProperty('--sc', stageColor);
+  if (!stageTagEl) stageTagEl = document.querySelector('.stagetag');
+  if (stageTagEl && stageTagEl._sc !== stageColor) {
+    stageTagEl._sc = stageColor;
+    stageTagEl.style.setProperty('--sc', stageColor);
+  }
 
   const bar = $('stageBar');
   if (bar && bar.children.length !== MAX_STAGE) {
@@ -1141,6 +1173,9 @@ window.addEventListener('resize', layout);
 
 let last = performance.now();
 let screenTimer = 0;
+let bgFx = null;          // 背景动效的容器：--excite 只写它，别写 :root
+let lastExciteQ = -1;
+let lastStarDur = '';
 function tick(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
@@ -1212,9 +1247,22 @@ function tick(now) {
     phone.group.rotation.z = 0;
 
     // 折叠强度交给 CSS，驱动背景动效的强弱
-    document.documentElement.style.setProperty('--excite', excite.toFixed(3));
+    // 写在 .bg-fx 上而不是 :root：整棵文档失效时单次样式重算 1.65ms，只失效背景子树 0.56ms
+    // （2 折/秒的节奏下这是白烧的主线程）。按 0.01 一档量化，肉眼无差。
+    if (!bgFx) bgFx = document.querySelector('.bg-fx');
+    const q = Math.round(excite * 100);
+    if (bgFx && q !== lastExciteQ) {
+      lastExciteQ = q;
+      bgFx.style.setProperty('--excite', (q / 100).toFixed(2));
+    }
     // 星点流速也跟着走：静时 46s 一圈，折满时 14s 一圈
-    if (starsEl) starsEl.style.animationDuration = `${(46 - excite * 32).toFixed(1)}s`;
+    if (starsEl) {
+      const dur = (46 - excite * 32).toFixed(0);
+      if (dur !== lastStarDur) {
+        lastStarDur = dur;
+        starsEl.style.animationDuration = `${dur}s`;
+      }
+    }
   }
 
   // 报废后缓慢自转，像在看一件遗物
@@ -1240,6 +1288,9 @@ const wp = new Image();
 wp.onload = () => { setWallpaper(wp); updateUI(); };
 wp.onerror = () => { console.warn('wallpaper load failed, fallback to gradient'); };
 wp.src = './assets/wallpaper-light.jpg';
+
+// 首帧之后再预热音频设备，不抢首屏
+requestAnimationFrame(() => setTimeout(prewarmAudio, 400));
 
 initShards();
 layout();

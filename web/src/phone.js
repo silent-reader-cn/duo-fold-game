@@ -159,7 +159,8 @@ function drawFillGlyph(ctx, key, cx, cy, size, color) {
 }
 
 let _wallpaper = null;
-export function setWallpaper(img) { _wallpaper = img; }
+let _wallpaperRev = 0;   // 壁纸换了要能让屏幕缓存失效
+export function setWallpaper(img) { _wallpaper = img; _wallpaperRev += 1; }
 
 function drawHome(ctx, st) {
   // 壁纸
@@ -811,8 +812,16 @@ export function drawCover(ctx, st) {
 }
 
 // 画布超采样倍数：物理像素 = 逻辑尺寸 x SS，上下文预先 scale，
-// 所有绘制仍用原来的逻辑坐标，但贴到 3D 面上清晰度翻倍
-const SS = 2;
+// 所有绘制仍用原来的逻辑坐标。
+// 固定 2x 是浪费：手机竖屏（390 CSS @DPR2）内屏实际只占 ~470 设备像素宽，
+// 1024 宽的纹理已经有 2.2 倍超采样；2x 让每次重绘和纹理上传都多付 4 倍像素。
+// 按"屏幕真实像素量"分档：只有大屏高 DPI 才值得 2x。
+function pickSS() {
+  const deviceW = (typeof window !== 'undefined' ? window.innerWidth : 390)
+    * (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
+  return deviceW > 1500 ? 2 : 1;
+}
+const SS = pickSS();
 
 function makeCanvas(w, h) {
   const c = document.createElement('canvas');
@@ -1240,29 +1249,112 @@ export function createPhone() {
   const cc = coverCanvas.getContext('2d');
   let firstDraw = true;
 
-  function updateScreen(state) {
-    ci.setTransform(SS, 0, 0, SS, 0, 0);
-    ci.clearRect(0, 0, CW, CH);
-    drawScreen(ci, state);
-    // 吹风机撕掉磨砂涂层 → 屏幕变亮面，反光强度直接拉满
+  // ---------------- 重绘调度 ----------------
+  // 折叠 2 次/秒时，原先每次 updateUI 都整幅重画内屏 + 外屏并重新上传纹理，
+  // 单次 14~15ms 主线程 + 30ms 级 GPU 上传，正好踩在每一折的节拍上。
+  // 这里做三件事：同一帧内合并、状态没变就不画、外屏独立缓存（它不含 folds，几乎不变）。
+  const MIN_TV_INTERVAL = 200;   // 闪屏/触点/绿线这类读 t 的元素的最小刷新间隔
+  let latest = null;
+  let lastInnerKey = '';
+  let lastCoverKey = '';
+  let lastPaintAt = -1e9;
+  let rafPending = false;
+  let tvTimer = 0;
+
+  const traitsKey = (s) => (s.traits || []).slice().sort().join(',');
+  const innerKeyOf = (s) =>
+    `${s.stage}|${s.folds}|${s.broken ? 1 : 0}|${s.matte ? 1 : 0}|${s.sand ? 1 : 0}|${traitsKey(s)}|${_wallpaperRev}`;
+  // 外屏不画折痕/裂纹，跟 folds 无关：只有升阶、碎裂、词条、壁纸才会变
+  const coverKeyOf = (s) =>
+    `${s.stage}|${s.broken ? 1 : 0}|${traitsKey(s)}|${_wallpaperRev}`;
+
+  // 屏幕上有没有随时间变化的东西（没有就完全不用为了"时间"重绘）
+  function timeVarying(s) {
+    if (s.broken) return false;
+    const tr = s.traits || [];
+    return s.stage >= 4 || tr.indexOf('flicker') >= 0 ||
+      tr.indexOf('greenline') >= 0 || tr.indexOf('fullgreen') >= 0 || tr.indexOf('touch') >= 0;
+  }
+
+  // 轻量自检计数：性能回归时直接读这份数据，不用再包一层代理
+  const devStats = { paints: 0, innerDraws: 0, coverDraws: 0, paintMs: 0, maxPaintMs: 0 };
+
+  // forceInner：时间驱动的重绘（闪屏/绿线闪烁/触点漂移都读 t）。
+  // 这类重绘状态 key 不变，但画面必须重画，否则故障动效会在两次折叠之间冻住。
+  function paint(state, forceInner) {
+    const t0 = performance.now();
+    lastPaintAt = t0;
+    const sync = firstDraw;          // 首帧必须同步上传，否则手机会空屏一帧
+    let innerDrawn = false;
+    let coverDrawn = false;
+
+    const ik = innerKeyOf(state);
+    if (sync || forceInner || ik !== lastInnerKey) {
+      lastInnerKey = ik;
+      ci.setTransform(SS, 0, 0, SS, 0, 0);
+      ci.clearRect(0, 0, CW, CH);
+      drawScreen(ci, state);
+      innerDrawn = true;
+    }
+    // 吹风机撕掉磨砂涂层 → 屏幕变亮面，反光强度直接拉满（只是 uniform，随手写）
     screenMat.uniforms.uGloss.value = state.matte ? 0 : 1;
 
-    cc.setTransform(SS, 0, 0, SS, 0, 0);
-    cc.clearRect(0, 0, SW, SH);
-    drawCover(cc, state);
+    const ck = coverKeyOf(state);
+    if (sync || ck !== lastCoverKey) {
+      lastCoverKey = ck;
+      cc.setTransform(SS, 0, 0, SS, 0, 0);
+      cc.clearRect(0, 0, SW, SH);
+      drawCover(cc, state);
+      coverDrawn = true;
+    }
 
-    if (firstDraw) {
-      // 首帧必须同步上传，否则手机会空屏一帧
+    if (sync) {
       firstDraw = false;
       innerUpload.uploadSync();
       coverUpload.uploadSync();
     } else {
-      innerUpload.request();
-      coverUpload.request();
+      if (innerDrawn) innerUpload.request();
+      if (coverDrawn) coverUpload.request();
     }
+
+    devStats.paints += 1;
+    if (innerDrawn) devStats.innerDraws += 1;
+    if (coverDrawn) devStats.coverDraws += 1;
+    const cost = performance.now() - t0;
+    devStats.paintMs += cost;
+    if (cost > devStats.maxPaintMs) devStats.maxPaintMs = cost;
   }
 
-  return { group, setBend, updateScreen, getBend: () => curBend, leftPivot, rightPivot, coverCanvas, canvasInner, screenMesh };
+  function flush() {
+    rafPending = false;
+    const s = latest;
+    if (!s) return;
+    const changed = innerKeyOf(s) !== lastInnerKey || coverKeyOf(s) !== lastCoverKey;
+    if (!changed && !timeVarying(s)) return;       // 状态没变、也没有时间驱动的元素 → 不重绘不上传
+    const wait = MIN_TV_INTERVAL - (performance.now() - lastPaintAt);
+    if (!changed && wait > 0) {
+      // 纯时间驱动的刷新：按最小间隔合并，避免 0.18s 节拍与折叠节拍叠加成两倍工作量
+      if (!tvTimer) tvTimer = setTimeout(() => { tvTimer = 0; request(); }, wait + 4);
+      return;
+    }
+    paint(s, !changed);
+  }
+
+  function request() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(flush);
+  }
+
+  function updateScreen(state) {
+    latest = state;
+    request();
+  }
+
+  return {
+    group, setBend, updateScreen, getBend: () => curBend, leftPivot, rightPivot,
+    coverCanvas, canvasInner, screenMesh, stats: devStats,
+  };
 }
 
 /** 渐变环境贴图，让钛金属有反射 */
