@@ -1035,17 +1035,17 @@ function renderBook() {
           const rar = RARITY[tr.rarity];
           const locked = n === 0;
           const fresh = !locked && freshIds.includes(tr.id);
-          return `<div class="book-trait ${locked ? 'locked' : ''} ${fresh ? 'fresh' : ''}">
+          return `<div class="book-trait r-${tr.rarity} ${locked ? 'locked' : ''} ${fresh ? 'fresh' : ''}">
             <div class="bt-top">
-              <span class="bt-name" style="color:${locked ? 'var(--dim)' : rar.color}">${locked ? '???' : tr.name}</span>
-              <span class="bt-rarity" style="color:${rar.color}">${rar.label}</span>
+              <span class="bt-name">${locked ? '???' : tr.name}</span>
+              <span class="bt-rarity">${rar.label}</span>
             </div>
             <div class="bt-desc">${locked ? t('book.locked') : tr.desc}</div>
             ${locked ? '' : `<div class="bt-count">×${n}${fresh ? '<i class="bt-new">NEW</i>' : ''}</div>`}
           </div>`;
         })
         .join('');
-      return `<div class="book-group">${RARITY[g.key].label} · ${got}/${list.length}</div>
+      return `<div class="book-group r-${g.key}">${RARITY[g.key].label} · ${got}/${list.length}</div>
               <div class="book-grid">${cards}</div>`;
     })
     .join('');

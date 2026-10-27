@@ -253,38 +253,169 @@ html, body {
 .book-scroll::-webkit-scrollbar { width: 3px; }
 .book-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border-radius: 2px; }
 
-.book-group { font-size: 10px; letter-spacing: .22em; color: var(--dim); margin: 14px 0 7px; }
+.book-group {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; letter-spacing: .22em; color: var(--gc, var(--dim));
+  margin: 16px 0 8px;
+}
+/* 组标题右侧一条淡出的分隔线，颜色跟着稀有度走 */
+.book-group::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--gc, #fff) 42%, transparent), transparent);
+}
 .book-group:first-child { margin-top: 0; }
+.book-group.r-common { --gc: #aab1bd; }
+.book-group.r-rare { --gc: #6fbcff; }
+.book-group.r-epic { --gc: #c48dff; }
+.book-group.r-legendary { --gc: #ffc84f; }
 
-.book-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 7px; }
+.book-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+/* ---- 词条卡：四档稀有度各有自己的边框 / 底光 / 辉光 ----
+   做法：border 留透明，第二层 background 画在 border-box 上当渐变描边，
+   第一层 padding-box 才是卡面。文字色一律取「提亮版」主色，
+   小字号在深底上也要压得住，别拿原始饱和色直接写字。 */
 .book-trait {
-  border-radius: 10px; padding: 9px 11px;
-  border: 1px solid rgba(255,255,255,.07);
-  background: rgba(255,255,255,.025);
-  transition: all .18s;
+  --rc: #c6ccd6;
+  --rl1: rgba(200, 208, 222, .26);
+  --rl2: rgba(200, 208, 222, .13);
+  --rl3: rgba(228, 234, 244, .30);
+  --rtint: rgba(200, 208, 222, .05);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 10px 12px 11px;
+  background:
+    linear-gradient(180deg, rgba(27, 31, 39, .97), rgba(13, 15, 20, .99)) padding-box,
+    linear-gradient(125deg, var(--rl1) 0%, var(--rl2) 40%, var(--rl3) 64%, var(--rl1) 100%) border-box;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+  transition: transform .18s, box-shadow .18s;
 }
-.book-trait.locked { opacity: .34; }
-/* 本次新解锁：绿边 + NEW 标签，一眼看出哪几条是刚拿到的 */
+/* 左上角一缕稀有度色，卡片不再是一块死黑 */
+.book-trait::before {
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(132% 100% at 6% -26%, var(--rtint), transparent 62%);
+}
+.book-trait > * { position: relative; z-index: 2; }
+
+/* 普通：冷银细线，安静不发光 —— 底档就该朴素 */
+.book-trait.r-common {
+  --rc: #cbd2dc;
+  --rl1: rgba(203, 210, 220, .30);
+  --rl2: rgba(203, 210, 220, .13);
+  --rl3: rgba(236, 241, 248, .34);
+  --rtint: rgba(203, 210, 220, .05);
+}
+/* 稀有：亮蓝渐变边 + 淡蓝外环 + 蓝底光 */
+.book-trait.r-rare {
+  --rc: #7cc8ff;
+  --rl1: rgba(110, 190, 255, .62);
+  --rl2: rgba(58, 138, 255, .34);
+  --rl3: rgba(150, 238, 255, .64);
+  --rtint: rgba(74, 163, 255, .17);
+  box-shadow:
+    inset 0 1px 0 rgba(210, 240, 255, .10),
+    0 0 0 1px rgba(74, 163, 255, .16),
+    0 0 16px -8px rgba(74, 163, 255, .78);
+}
+/* 史诗：2px 紫→洋红渐变边 + 更重的辉光 */
+.book-trait.r-epic {
+  --rc: #cf9bff;
+  --rl1: rgba(190, 115, 255, .70);
+  --rl2: rgba(255, 110, 215, .42);
+  --rl3: rgba(152, 95, 255, .74);
+  --rtint: rgba(183, 107, 255, .20);
+  border-width: 2px;
+  box-shadow:
+    inset 0 1px 0 rgba(245, 225, 255, .12),
+    0 0 0 1px rgba(183, 107, 255, .18),
+    0 0 22px -8px rgba(190, 110, 255, .88);
+}
+/* 传说：2px 金边 + 呼吸辉光 + 旋转扫光，最高档就该最扎眼 */
+.book-trait.r-legendary {
+  --rc: #ffd15c;
+  --rl1: rgba(255, 190, 60, .86);
+  --rl2: rgba(255, 150, 40, .50);
+  --rl3: rgba(255, 248, 205, .95);
+  --rtint: rgba(255, 176, 32, .22);
+  border-width: 2px;
+  animation: legBreath 2.6s ease-in-out infinite;
+}
+.book-trait.r-legendary::after {
+  content: ''; position: absolute; inset: -60%; z-index: 1; pointer-events: none;
+  background: conic-gradient(from 0deg,
+    transparent 0deg, rgba(255, 214, 120, .20) 34deg, rgba(255, 246, 214, .38) 50deg,
+    rgba(255, 214, 120, .20) 66deg, transparent 92deg, transparent 360deg);
+  animation: legSpin 7s linear infinite;
+}
+@keyframes legSpin { to { transform: rotate(1turn); } }
+@keyframes legBreath {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255, 240, 195, .16), 0 0 18px -9px rgba(255, 176, 32, .88); }
+  50%      { box-shadow: inset 0 1px 0 rgba(255, 240, 195, .24), 0 0 30px -6px rgba(255, 192, 64, 1); }
+}
+
+/* 未解锁：整体压暗，但边框仍留一缕稀有度色，图鉴才有收集欲 */
+.book-trait.locked { opacity: .52; }
+.book-trait.locked .bt-name { color: #9aa2af; text-shadow: none; }
+.book-trait.locked .bt-rarity {
+  color: #8f97a4;
+  background: rgba(255, 255, 255, .05);
+  border-color: rgba(255, 255, 255, .16);
+}
+.book-trait.locked .bt-desc { color: #828a96; }
+
+/* 本次新解锁：绿环压过稀有度辉光，一眼看出哪几条是刚拿到的 */
 .book-trait.fresh {
-  border-color: rgba(0, 255, 136, .34);
-  background: rgba(0, 255, 136, .05);
-  box-shadow: 0 0 18px -9px rgba(0, 255, 136, .9);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .08),
+    0 0 0 1px rgba(0, 255, 136, .42),
+    0 0 22px -8px rgba(0, 255, 136, .9);
 }
-.book-trait .bt-count { display: flex; align-items: center; gap: 6px; }
+.book-trait.fresh.r-legendary { animation: none; }
+
 .book-trait .bt-new {
-  font-style: normal; font-size: 8px; letter-spacing: .1em; line-height: 1;
+  font-style: normal; font-size: 8.5px; font-weight: 700; letter-spacing: .1em; line-height: 1;
   padding: 2px 4px; border-radius: 4px;
   color: var(--green); background: rgba(0, 255, 136, .14);
   border: 1px solid rgba(0, 255, 136, .46);
 }
-.book-trait .bt-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-.book-trait .bt-name { font-size: 12.5px; font-weight: 600; }
+.book-trait .bt-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+/* 稀有度标签独占一行贴右，标题再整行铺开：
+   英文名（Crease Deepens / A Thread of Green）不会被标签挤成三行 */
 .book-trait .bt-rarity {
-  font-size: 8.5px; letter-spacing: .1em; padding: 1px 5px;
-  border-radius: 5px; border: 1px solid currentColor; flex: none;
+  order: 1; margin-left: auto;
+  flex: none; font-size: 9px; font-weight: 700; letter-spacing: .12em;
+  padding: 2px 6px; border-radius: 6px;
+  color: var(--rc);
+  background: color-mix(in srgb, var(--rc) 17%, rgba(6, 8, 12, .62));
+  border: 1px solid color-mix(in srgb, var(--rc) 52%, transparent);
 }
-.book-trait .bt-desc { font-size: 10px; color: var(--dim); margin-top: 3px; line-height: 1.45; }
-.book-trait .bt-count { font-size: 9.5px; color: var(--dim); margin-top: 2px; opacity: .8; }
+.book-trait .bt-name {
+  order: 2; flex: 1 0 100%;
+  font-size: 13.5px; font-weight: 700; color: var(--rc); letter-spacing: .01em;
+  line-height: 1.35; overflow-wrap: anywhere;
+  text-shadow: 0 0 14px color-mix(in srgb, var(--rc) 45%, transparent);
+}
+.book-trait .bt-desc { font-size: 11px; color: #b4bbc6; margin-top: 4px; line-height: 1.5; }
+.book-trait .bt-count { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: #9aa2ae; margin-top: 3px; }
+
+/* 宽屏：别把手机版两列硬拉宽。面板加宽 + 改三列，字号跟着提一档，
+   桌面上一屏能看到更多卡片，描述也不再挤成两行半。 */
+@media (min-width: 820px) {
+  .book-card { max-width: 700px; padding: 26px 24px 20px; }
+  .book-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .book-trait { padding: 12px 14px 13px; }
+  .book-trait .bt-name { font-size: 14.5px; }
+  .book-trait .bt-rarity { font-size: 9.5px; }
+  .book-trait .bt-desc { font-size: 11.5px; }
+  .book-trait .bt-count { font-size: 11px; }
+  .book-stats { gap: 10px; margin-bottom: 17px; }
+  .book-stat b { font-size: 19px; }
+  .book-stat span { font-size: 10px; }
+  .book-group { font-size: 10.5px; margin: 18px 0 9px; }
+  .book-heading h2 { font-size: 22px; }
+}
 
 /* 新手引导：两行手势胶囊
    上行演示「向右滑动」，下行演示「长按自动折叠」；长按充能时整块会随进度变亮 */
@@ -901,9 +1032,12 @@ body::after {
   .items button:not(:disabled), .sheet img, .book-ring svg,
   #btnAC.can-upgrade, #btnAC.can-upgrade::after,
   .swipe-hint::before, .sh-dot, .sh-chev i, .cn-rule i.next,
-  .sh-ring::after, .bb-dot {
+  .sh-ring::after, .bb-dot,
+  .book-trait.r-legendary, .book-trait.r-legendary::after {
     animation: none !important;
   }
+  /* 扫光停转后留一个静态的柔光角落，别变成一块纯透明 */
+  .book-trait.r-legendary::after { opacity: .5; transform: rotate(28deg); }
   #btnAC.can-upgrade { transform: none !important; }
 }
 
