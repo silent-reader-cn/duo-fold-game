@@ -900,19 +900,28 @@ export function createPhone() {
   const screenMat = new THREE.ShaderMaterial({
     uniforms: {
       uMap: { value: texInner },
+      uGloss: { value: 0.0 },        // 0 = 磨砂 / 1 = 亮面（吹风机撕掉涂层后）
       uFold: { value: 0.0 },
     },
     vertexShader: `
       varying vec2 vUv;
+      varying vec3 vN;
+      varying vec3 vV;
       void main() {
         vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal);
+        vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
       }
     `,
     fragmentShader: `
       uniform sampler2D uMap;
       uniform float uFold;
+      uniform float uGloss;
       varying vec2 vUv;
+      varying vec3 vN;
+      varying vec3 vV;
 
       void main() {
         float d = abs(vUv.x - 0.5);
@@ -953,6 +962,35 @@ export function createPhone() {
         col.rgb *= (1.0 - uFold * 0.16 * exp(-d * 34.0));
         // 折线处的冷色光学偏移
         col.rgb += vec3(0.005, 0.016, 0.045) * uFold * exp(-d * 22.0);
+
+        // ---- 镜面：磨砂膜被吹风机撕掉后，屏幕变成能映出环境的镜面 ----
+        if (uGloss > 0.01) {
+          vec3 N = normalize(vN);
+          vec3 V = normalize(vV);
+          vec3 R = reflect(-V, N);
+
+          // 程序化环境：上半天光、下半地影
+          float sky = clamp(R.y * 0.5 + 0.5, 0.0, 1.0);
+          vec3 env = mix(vec3(0.045, 0.055, 0.075), vec3(0.46, 0.60, 0.80), sky);
+
+          // 环境里的两盏灯（一强一弱，位置错开，形成镜面上常见的双高光）
+          float lampA = pow(max(0.0, dot(R, normalize(vec3(0.42, 0.86, 0.30)))), 14.0);
+          env += vec3(1.0) * lampA * 1.05;
+          float lampB = pow(max(0.0, dot(R, normalize(vec3(-0.72, 0.34, 0.42)))), 26.0);
+          env += vec3(0.82, 0.90, 1.0) * lampB * 0.85;
+
+          // 折线处曲面更容易吃到光，尤其在折叠时会拉出反光带
+          env += vec3(0.55, 0.70, 0.95) * exp(-d * 10.0) * 0.35;
+
+          // 镜面混合：内容整体压暗一点，再叠上反射，才像「一层玻璃盖在画面上面」
+          vec3 mirrored = col.rgb * 0.70 + env * 0.82;
+
+          // 菲涅尔：正面看以内容为主，掠射角几乎全反射
+          float ndv = clamp(abs(dot(N, V)), 0.0, 1.0);
+          float fres = pow(1.0 - ndv, 2.4);
+          float strength = uGloss * clamp(0.22 + fres * 0.72, 0.0, 1.0);
+          col.rgb = mix(col.rgb, mirrored, min(strength, 0.74));
+        }
 
         // 圆角裁切：透明区域直接丢弃，露出机身
         if (col.a < 0.5) discard;
@@ -1152,6 +1190,8 @@ export function createPhone() {
     ci.clearRect(0, 0, CW, CH);
     drawScreen(ci, state);
     texInner.needsUpdate = true;
+    // 吹风机撕掉磨砂涂层 → 屏幕变亮面，反光强度直接拉满
+    screenMat.uniforms.uGloss.value = state.matte ? 0 : 1;
 
     const cc = coverCanvas.getContext('2d');
     cc.setTransform(SS, 0, 0, SS, 0, 0);
